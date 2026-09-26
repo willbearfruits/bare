@@ -1,0 +1,26 @@
+# STYLO: a pocket organ played with a stylus on a metal strip, after the Stylophone (1967).
+# The touchpad is the strip: 20 notes from A2, one at a time, a new note each time the finger crosses a key.
+
+name: STYLO
+by: BARE!
+about: a stylus on a metal strip: the touchpad is the strip
+
+[sound]
+wave: pulse
+width: 30
+attack: 1
+decay: 1
+sustain: 100
+release: 15
+cutoff: 100
+vibrato: 0
+level: 65
+
+[play]
+strip: A2 E4
+steps: semitones
+keys: chromatic A2
+mono: yes
+
+[knobs]
+knobs: width cutoff vibrato release level

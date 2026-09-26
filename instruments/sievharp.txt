@@ -1,0 +1,26 @@
+# SIEVEHARP: a harp tuned to a sieve (S1 on the XENAKIS page's SIEVES view): the letter rows play its steps upward,
+# and held notes fall down it at random. Change S1, and the harp is retuned.
+
+name: SIEVHARP
+by: BARE!
+about: a harp tuned to sieve S1, falling at random
+
+[sound]
+wave: tri
+attack: 1
+decay: 700
+sustain: 0
+release: 400
+cutoff: 110
+level: 80
+
+[play]
+keys: scale C3
+scale: S1
+arp: random
+rate: 3
+octaves: 1
+hold: yes
+
+[knobs]
+knobs: decay release rate level

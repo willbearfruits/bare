@@ -1,0 +1,23 @@
+# THEREMIN: pitch without steps. Across the touchpad is the pitch, as smooth as the finger; pressing harder is louder.
+
+name: THEREMIN
+by: BARE!
+about: across the touchpad, pitch without steps; pressure, loudness
+
+[sound]
+wave: sine
+attack: 80
+decay: 10
+sustain: 100
+release: 300
+vibrato: 25
+level: 80
+
+[play]
+strip: C3 C6
+steps: free
+glide: 40
+mono: yes
+
+[knobs]
+knobs: vibrato glide attack release level

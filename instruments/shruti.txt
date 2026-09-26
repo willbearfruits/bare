@@ -1,0 +1,28 @@
+# SHRUTI: a shruti box, the drone box of Indian music. The keys open its reeds (a key opens one, pressed again it
+# closes), and the air comes from the bellows: move a finger to and fro on the touchpad, or hold Enter. The reeds are
+# tuned in just intonation from Sa, the keys' first note (Z): Pa (B) is exactly 3:2 above it, Ma (V) 4:3.
+# Sa is C here; for another, change the note after "chromatic".
+
+name: SHRUTI
+by: BARE!
+about: a drone box: the keys open reeds, the touchpad is its bellows
+
+[sound]
+wave: pulse
+width: 22
+detune: 8
+attack: 160
+sustain: 100
+release: 500
+cutoff: 92
+resonance: 18
+level: 62
+
+[play]
+keys: chromatic C3
+tuning: just
+hold: toggle
+bellows: yes
+
+[knobs]
+knobs: width detune cutoff resonance attack release level

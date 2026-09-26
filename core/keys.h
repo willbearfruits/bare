@@ -1,0 +1,9 @@
+#pragma once
+/* Portable key codes. Printable keys use their unshifted US-layout ASCII. */
+enum {
+    KEY_NONE = 0, KEY_BACKSPACE = 8, KEY_TAB = 9, KEY_ENTER = 10, KEY_ESC = 27, KEY_SPACE = ' ',
+    KEY_UP = 0x80, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_PGUP, KEY_PGDN, KEY_INSERT, KEY_DELETE,
+    KEY_F1 = 0x90, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12,
+    KEY_LSHIFT = 0xA0, KEY_RSHIFT, KEY_LCTRL, KEY_RCTRL, KEY_LALT, KEY_RALT, KEY_CAPS, KEY_LMETA, KEY_PRTSC, KEY_SCROLL,
+    KEY_VOLDOWN = 0xB0, KEY_VOLUP, KEY_MUTE,         /* laptop volume keys */
+};

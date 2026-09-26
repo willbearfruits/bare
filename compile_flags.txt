@@ -1,0 +1,7 @@
+-std=gnu11
+-m32
+-Icore
+-Iarch/x86
+-Iarch/x86/i386
+-Iboot/i386
+-Itest

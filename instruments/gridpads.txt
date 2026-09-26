@@ -1,0 +1,27 @@
+# GRIDPADS: sixteen pads on a minor pentatonic scale, GENDY's walking waves, an arpeggio under the held pads.
+
+name: GRIDPADS
+by: BARE!
+about: 4x4 pads on a minor pentatonic scale, arpeggiated
+
+[sound]
+wave: gendy1
+attack: 3
+decay: 250
+sustain: 40
+release: 200
+cutoff: 96
+resonance: 30
+envelope: 20
+level: 75
+
+[play]
+pads: 4x4 C3
+scale: minorpenta
+keys: scale C3
+arp: up
+rate: 4
+octaves: 2
+
+[knobs]
+knobs: cutoff resonance envelope decay rate level
