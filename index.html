@@ -4,11 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BARE! · a synthesizer with no operating system</title>
-<meta name="description" content="A synthesizer that is the whole computer. It starts from a USB stick straight into the instrument, with no operating system underneath.">
-<meta property="og:title" content="BARE!">
-<meta property="og:description" content="A synthesizer that is the whole computer: no operating system, from a USB stick, on PCs from the late 1990s to now.">
-<meta property="og:image" content="img/play.png">
+<meta name="description" content="A synthesizer that is the whole computer. It starts from a USB stick straight into the instrument, with no operating system underneath, on PCs from the late 1990s to now.">
+<meta property="og:title" content="BARE! · a synthesizer with no operating system">
+<meta property="og:description" content="A synthesizer that is the whole computer: an omnichord, a tracker, FM, tape, Xenakis, homages to Reich, Carlos, Radigue and Merzbow — and Doom. From a USB stick, with no operating system.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://willbearfruits.github.io/bare/">
+<meta property="og:image" content="https://willbearfruits.github.io/bare/img/play.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="dark">
 <link rel="icon" href="favicon.svg">
+<script>document.documentElement.classList.add('js')</script>
 <style>
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; src: url('fonts/IBMPlexMono-400.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; src: url('fonts/IBMPlexMono-500.woff2') format('woff2'); }
@@ -19,98 +24,173 @@
 @font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 600; src: url('fonts/IBMPlexSans-600.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 700; src: url('fonts/IBMPlexSans-700.woff2') format('woff2'); }
 
-:root { --bg: #0c0f14; --panel: #141a22; --border: #2c3746; --dim: #5a6879; --text: #b6c2ce; --bright: #f0f4f7;
-  --amber: #ffb454; --amber-d: #6e5025; --green: #7ee787; --cyan: #58c7f3; --pink: #f286c4; --scope: #5ef0a8; }
+:root { --bg: #0c0f14; --panel: #141a22; --deep: #0f141b; --border: #263140; --line: #2c3746; --dim: #7a8899; --text: #b8c4cf;
+  --bright: #f0f4f7; --amber: #ffb454; --amber-d: #6e5025; --green: #7ee787; --cyan: #58c7f3; --pink: #f286c4; --red: #ff7b72; }
 * { box-sizing: border-box; }
-html { background: var(--bg); color: var(--text); font: 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; scroll-behavior: smooth; }
-body { margin: 0; }
+html { background: var(--bg); color: var(--text); font: 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; scroll-behavior: smooth; scroll-padding-top: 56px; -webkit-text-size-adjust: 100%; }
+body { margin: 0; overflow-x: hidden; }
 a { color: var(--cyan); text-decoration: none; } a:hover { text-decoration: underline; }
-code { font: .82em 'IBM Plex Mono', monospace; color: var(--bright); background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: .05em .35em; word-break: break-word; }
+h3 { color: var(--bright); font-weight: 600; margin: 0; }
+code { font: .84em 'IBM Plex Mono', monospace; color: var(--bright); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .05em .35em; word-break: break-word; }
 kbd { font: 500 .78em 'IBM Plex Mono', monospace; color: var(--bright); background: var(--bg); border: 1px solid var(--dim); border-bottom-width: 2.5px; border-radius: 5px; padding: .08em .45em; white-space: nowrap; }
 .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-svg.px { display: block; height: clamp(26px, 7vw, 44px); width: auto; max-width: 100%; color: var(--amber); }
-svg.px.big { height: clamp(90px, 17vw, 190px); color: var(--bright); }
+svg.px { display: block; height: clamp(26px, 6vw, 40px); width: auto; max-width: 100%; color: var(--amber); }
+svg.px.big { height: clamp(84px, 16vw, 180px); color: var(--bright); }
 svg.px.small { height: 22px; }
+.small { font-size: 14.5px; color: var(--dim); }
+.small a { color: var(--text); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 
-/* the title bar, as the instrument draws it */
-.bar { position: sticky; top: 0; z-index: 10; background: rgba(20, 26, 34, .94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--border); }
-.bar .wrap { display: flex; align-items: center; gap: 4px; height: 44px; font: 500 13px 'IBM Plex Mono', monospace; overflow-x: auto; scrollbar-width: none; }
-.bar .home { color: var(--bright); margin-right: 14px; white-space: nowrap; } .bar .home b { color: var(--amber); font-weight: 500; }
+/* the title bar, as the instrument draws it: the lit tab follows the section in view */
+.bar { position: sticky; top: 0; z-index: 10; background: rgba(20, 26, 34, .94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; gap: 2px; height: 44px; font: 500 13px 'IBM Plex Mono', monospace; overflow-x: auto; scrollbar-width: none; }
+.bar .wrap::-webkit-scrollbar { display: none; }
+.bar .home { color: var(--bright); margin-right: 14px; white-space: nowrap; flex-shrink: 0; } .bar .home b { color: var(--amber); font-weight: 500; }
 .bar a.tab { color: var(--text); padding: 3px 9px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
-.bar .home { flex-shrink: 0; }
 .bar a.tab span { color: var(--dim); margin-right: 5px; }
-.bar a.tab:hover { background: var(--amber); color: var(--bg); text-decoration: none; } .bar a.tab:hover span { color: var(--amber-d); }
+.bar a.tab:hover, .bar a.tab.lit { background: var(--amber); color: var(--bg); text-decoration: none; }
+.bar a.tab:hover span, .bar a.tab.lit span { color: var(--amber-d); }
+.bar .ver { margin-left: auto; padding-left: 14px; color: var(--dim); white-space: nowrap; flex-shrink: 0; }
 
-.hero { padding: 72px 0 40px; }
-.hero .tag { font-size: clamp(24px, 3.4vw, 36px); line-height: 1.25; color: var(--bright); margin: 34px 0 12px; max-width: 30ch; letter-spacing: -.01em; }
-.hero .sub { font-size: 19px; max-width: 58ch; margin: 0; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 30px 0 48px; }
-.btn { font: 500 15px 'IBM Plex Mono', monospace; padding: 11px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--bright); background: var(--panel); }
+.hero { padding: 64px 0 24px; }
+.hero .tag { font-size: clamp(24px, 3.4vw, 36px); line-height: 1.25; color: var(--bright); margin: 30px 0 12px; max-width: 30ch; letter-spacing: -.01em; }
+.hero .sub { font-size: 19px; max-width: 56ch; margin: 0; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 30px 0 44px; }
+.btn { display: inline-flex; align-items: baseline; gap: 10px; font: 500 15px 'IBM Plex Mono', monospace; padding: 11px 18px; border: 1px solid var(--line); border-radius: 6px; color: var(--bright); background: var(--panel); cursor: pointer; }
 .btn:hover { border-color: var(--amber); text-decoration: none; }
+.btn small { font-size: 12.5px; color: var(--dim); }
 .btn.primary { background: var(--amber); border-color: var(--amber); color: var(--bg); } .btn.primary:hover { background: #ffc677; }
-.screen { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 0 0 7px var(--panel), 0 40px 90px -20px rgba(0, 0, 0, .8); }
+.btn.primary small { color: var(--amber-d); }
+.screen { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 0 0 6px var(--panel), 0 36px 80px -24px rgba(0, 0, 0, .85); }
 .screen video, .screen img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; }
 .hero .note { font: 13px 'IBM Plex Mono', monospace; color: var(--dim); margin-top: 18px; }
 
-section { padding: 72px 0 24px; }
-section > .wrap > p.lede { font-size: 19px; max-width: 62ch; margin: 18px 0 30px; }
-h2 { margin: 0; }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
-.split > *, .manual > *, section > .wrap > *, .hero > .wrap > * { min-width: 0; }
-.split p { max-width: 52ch; }
+section { padding: 88px 0 8px; }
+p.lede { font-size: 19px; max-width: 60ch; margin: 18px 0 34px; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; margin-top: 34px; }
-.card { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; color: var(--text); transition: border-color .15s, transform .15s; }
-.card:hover { border-color: var(--amber); text-decoration: none; transform: translateY(-2px); }
-.card .shot img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; }
-.card .cap { padding: 14px 16px 16px; border-top: 1px solid var(--border); }
-.card .ct { display: flex; align-items: center; gap: 10px; font: 600 15px 'IBM Plex Mono', monospace; color: var(--bright); letter-spacing: .04em; }
-.card .ct kbd { color: var(--amber); border-color: var(--amber-d); }
-.card p { margin: 8px 0 0; font-size: 15px; line-height: 1.5; }
+/* what it is: three facts */
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; }
+.three div { border-top: 2px solid var(--amber); padding-top: 14px; }
+.three b { display: block; font: 600 13px 'IBM Plex Mono', monospace; color: var(--bright); letter-spacing: .07em; margin-bottom: 8px; }
+.three p { margin: 0; font-size: 16px; }
 
-.views { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 26px; }
-.views figure { margin: 0; } .views img { width: 100%; display: block; border: 1px solid var(--border); border-radius: 8px; }
-.views figcaption, .splash figcaption { font: 12px 'IBM Plex Mono', monospace; color: var(--dim); margin-top: 7px; letter-spacing: .06em; }
-.splash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 26px; }
-.splash figure { margin: 0; } .splash img { width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border); }
+/* what the release added */
+.feature { display: grid; grid-template-columns: 1.25fr 1fr; gap: 48px; align-items: center; margin: 0 0 72px; }
+.feature.flip { grid-template-columns: 1fr 1.25fr; }
+.feature.flip > .screen, .feature.flip > .quad { order: 2; }
+.feature > * { min-width: 0; }
+.kicker { display: flex; align-items: center; gap: 10px; font: 600 13px 'IBM Plex Mono', monospace; color: var(--amber); letter-spacing: .08em; margin: 0 0 12px; }
+.kicker kbd { color: var(--amber); border-color: var(--amber-d); }
+.feature h3 { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.2; letter-spacing: -.01em; margin-bottom: 14px; }
+.feature p { margin: 0 0 12px; }
+.feature .try { font-size: 15px; color: var(--dim); }
+.quad { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.quad img { width: 100%; height: auto; aspect-ratio: 16 / 10; display: block; border-radius: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+.chips span { font: 500 12px 'IBM Plex Mono', monospace; color: var(--text); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; }
+.chips span b { color: var(--dim); font-weight: 500; margin-left: 5px; }
+ul.also { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+ul.also li { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; font-size: 15.5px; }
+ul.also b { display: block; color: var(--bright); font-weight: 600; margin-bottom: 4px; }
 
-pre.file { font: 13.5px/1.55 'IBM Plex Mono', monospace; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin: 0; overflow-x: auto; }
+/* the pages, behind F-key tabs */
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px 10px 0 0; border-bottom: 0; padding: 6px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { font: 500 13px 'IBM Plex Mono', monospace; color: var(--text); background: none; border: 0; border-radius: 3px; padding: 5px 10px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.tabs button span { color: var(--dim); margin-right: 5px; }
+.tabs button:hover { color: var(--bright); background: var(--deep); }
+.tabs button[aria-selected=true] { background: var(--amber); color: var(--bg); }
+.tabs button[aria-selected=true] span { color: var(--amber-d); }
+.tabs button:focus-visible, .views button:focus-visible, .os button:focus-visible, .btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.deck { border: 1px solid var(--line); border-radius: 0 0 12px 12px; background: var(--deep); padding: 22px; }
+.panel { display: grid; grid-template-columns: 1.6fr 1fr; gap: 28px; align-items: start; }
+.panel + .panel { margin-top: 40px; }
+.js .panel { display: none; margin-top: 0; } .js .panel.on { display: grid; }
+.panel > * { min-width: 0; }
+.panel .screen { box-shadow: none; border-radius: 8px; }
+.panel .ct { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.panel .ct kbd { color: var(--amber); border-color: var(--amber-d); font-size: 14px; }
+.panel .ct h3 { font: 600 22px 'IBM Plex Mono', monospace; letter-spacing: .05em; }
+.panel p { margin: 0 0 14px; }
+.views { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.views button { font: 500 12px 'IBM Plex Mono', monospace; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px; cursor: pointer; }
+.views button:hover { border-color: var(--cyan); }
+.views button[aria-pressed=true] { background: var(--cyan); border-color: var(--cyan); color: var(--bg); }
+.vcap { font-size: 15px; color: var(--dim); min-height: 3em; }
+.nojs-note { display: none; }
+
+/* getting it onto a stick */
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 46px 1fr; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px 20px 20px; }
+ol.steps > li::before { content: counter(s); font: 600 24px/1 'IBM Plex Mono', monospace; color: var(--amber); padding-top: 2px; }
+ol.steps > li > div { min-width: 0; }
+ol.steps h3 { font-size: 19px; margin-bottom: 8px; }
+ol.steps p { margin: 0 0 10px; }
+.dl { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 12px; }
+.os { display: flex; gap: 4px; margin: 4px 0 14px; }
+.os button { font: 500 13.5px 'IBM Plex Mono', monospace; color: var(--text); background: var(--deep); border: 1px solid var(--line); border-radius: 5px; padding: 6px 14px; cursor: pointer; }
+.os button[aria-selected=true] { background: var(--bright); color: var(--bg); border-color: var(--bright); }
+.ospanel ol { margin: 0 0 10px; padding-left: 22px; } .ospanel li { margin-bottom: 6px; }
+.js .ospanel { display: none; } .js .ospanel.on { display: block; }
+.ospanel h4 { margin: 0 0 6px; font: 600 12px 'IBM Plex Mono', monospace; letter-spacing: .08em; color: var(--dim); }
+.js .ospanel h4 { display: none; }
+.cmd { display: flex; align-items: stretch; gap: 0; margin: 8px 0 12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.cmd code { flex: 1; display: block; border: 0; border-radius: 0; background: none; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; }
+.cmd button { font: 500 12.5px 'IBM Plex Mono', monospace; color: var(--bright); background: var(--panel); border: 0; border-left: 1px solid var(--line); padding: 0 16px; cursor: pointer; }
+.cmd button:hover { color: var(--amber); }
+.warn { border-left: 3px solid var(--red); padding-left: 12px; }
+.update { margin: 22px 0 0; padding: 16px 20px; border: 1px dashed var(--line); border-radius: 10px; }
+.floppy { display: grid; grid-template-columns: 1fr 1.3fr; gap: 30px; margin-top: 22px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.floppy > * { min-width: 0; }
+.floppy h3 { font-size: 19px; margin-bottom: 8px; } .floppy p { margin: 0 0 14px; }
+.floppy ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15.5px; }
+.floppy ol b { color: var(--bright); font-weight: 600; }
+.update b { color: var(--bright); }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 30px; }
+.facts div { border-top: 2px solid var(--line); padding-top: 12px; font-size: 15px; }
+.facts b { display: block; font: 600 12.5px 'IBM Plex Mono', monospace; color: var(--bright); letter-spacing: .07em; margin-bottom: 6px; }
+
+.splash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 22px; }
+.splash figure { margin: 0; } .splash img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); }
+.splash figcaption { font: 12px 'IBM Plex Mono', monospace; color: var(--dim); margin-top: 7px; letter-spacing: .06em; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 26px; min-width: 0; }
+.card p { margin: 16px 0 16px; }
+.card img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); }
+pre.file { font: 13.5px/1.55 'IBM Plex Mono', monospace; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 0; overflow-x: auto; }
 pre.file .c { color: var(--dim); } pre.file .s { color: var(--amber); } pre.file .k { color: var(--cyan); }
 
-ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 30px 0; display: grid; gap: 14px; }
-ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
-ol.steps li::before { content: counter(s); font: 600 22px/1 'IBM Plex Mono', monospace; color: var(--amber); padding-top: 3px; }
-.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 10px; }
-.facts div { border-top: 2px solid var(--border); padding-top: 12px; font-size: 15px; }
-.facts b { display: block; font: 600 13px 'IBM Plex Mono', monospace; color: var(--bright); letter-spacing: .06em; margin-bottom: 6px; }
-
-.manual { display: grid; grid-template-columns: 280px 280px 1fr; gap: 26px; align-items: center; margin-top: 30px; }
-.manual img { width: 100%; display: block; border-radius: 4px; box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .9); background: #fff; }
-ul.next { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 14px; }
-ul.next li { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 8px; padding: 15px 18px; max-width: 80ch; }
+.manual { display: grid; grid-template-columns: 250px 250px 1fr; gap: 26px; align-items: center; }
+.manual img { width: 100%; height: auto; display: block; border-radius: 4px; box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .9); background: #fff; }
+.manual .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+ul.next { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 12px; }
+ul.next li { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 8px; padding: 14px 18px; max-width: 82ch; }
 ul.next b { color: var(--bright); font-weight: 600; }
 
-footer { margin-top: 80px; border-top: 1px solid var(--border); padding: 36px 0 60px; font-size: 14px; color: var(--dim); }
+footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 36px 0 60px; font-size: 14px; color: var(--dim); }
 footer .wrap { display: grid; grid-template-columns: auto 1fr; gap: 36px; align-items: start; }
 footer p { margin: 0 0 8px; max-width: 80ch; }
+footer a { color: var(--text); }
 footer svg.px { height: 30px; color: var(--dim); }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   html { font-size: 16px; } .wrap { padding: 0 16px; }
-  .split, .manual, footer .wrap { grid-template-columns: 1fr; }
-  .views, .splash { grid-template-columns: 1fr 1fr; } .facts { grid-template-columns: 1fr; }
-  .cards { grid-template-columns: 1fr; } .hero { padding-top: 44px; } section { padding-top: 56px; }
-  .manual img { max-width: 320px; }
+  .feature, .feature.flip, .panel, .two, .floppy, footer .wrap { grid-template-columns: 1fr; gap: 22px; }
+  .feature.flip > .screen, .feature.flip > .quad { order: 0; }
+  .three, .facts, ul.also { grid-template-columns: 1fr; gap: 18px; }
+  .splash { grid-template-columns: 1fr 1fr; }
+  .hero { padding-top: 40px; } section { padding-top: 64px; } .feature { margin-bottom: 52px; }
+  .deck { padding: 14px; } ol.steps > li { grid-template-columns: 30px 1fr; padding: 18px 16px; }
+  .manual { grid-template-columns: 1fr 1fr; gap: 16px; } .manual > div { grid-column: 1 / -1; } .bar .ver { display: none; }
 }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
 </head>
 <body>
-<nav class="bar"><div class="wrap">
+<nav class="bar" aria-label="sections"><div class="wrap">
   <a class="home" href="#top"><b>◆</b> BARE!</a>
-  <a class="tab" href="#pages"><span>F1</span>PAGES</a><a class="tab" href="#instruments"><span>F2</span>INSTRUMENTS</a>
-  <a class="tab" href="#video"><span>F3</span>VIDEO</a><a class="tab" href="#try"><span>F4</span>TRY IT</a>
-  <a class="tab" href="#manual"><span>F5</span>MANUAL</a><a class="tab" href="#next"><span>F6</span>NEXT</a>
-  <a class="tab" href="https://github.com/willbearfruits/bare"><span>F7</span>SOURCE</a>
+  <a class="tab" href="#new"><span>F1</span>HIGHLIGHTS</a><a class="tab" href="#pages"><span>F2</span>PAGES</a><a class="tab" href="#get"><span>F3</span>GET IT</a><a class="tab" href="#manual"><span>F4</span>MANUAL</a><a class="tab" href="https://github.com/willbearfruits/bare"><span>F5</span>SOURCE</a>
+  <span class="ver">1.0 beta</span>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
@@ -118,58 +198,176 @@ footer svg.px { height: 30px; color: var(--dim); }
   <p class="tag">A synthesizer that is the whole computer.</p>
   <p class="sub">It starts from a USB stick straight into the instrument, with no operating system underneath, on PCs from the late 1990s to now.</p>
   <div class="cta">
-    <a class="btn primary" href="https://github.com/willbearfruits/bare/releases/tag/v2.5">Download 2.5 beta</a>
-    <a class="btn" href="bare-manual-2.5.pdf">The manual (PDF)</a>
-    <a class="btn" href="https://github.com/willbearfruits/bare">Source</a>
+    <a class="btn primary" href="#get">Put it on a stick</a>
+    
+    <a class="btn" href="bare-manual-1.0-beta.pdf">The manual <small>PDF</small></a>
   </div>
-  <div class="screen"><video src="media/loop.mp4" poster="img/splash-gendy.png" autoplay muted loop playsinline></video></div>
-  <p class="note">Recorded from the instrument itself: the GENDY splash, UPIC, ANS, SHRUTI, TOUCH, FX, and Doom.</p>
+  <div class="screen"><img src="img/splash-gendy.png" alt="the GENDY splash: BARE! drawn by random walks" width="1280" height="800"></div>
+  <p class="note">One of the four splashes it plays as it starts: GENDY, after Xenakis's dynamic stochastic synthesis.</p>
 </div></header>
 
-<section id="pages"><div class="wrap">
-  <h2><svg class="px" viewBox="0 6 144 20" role="img" aria-label="THE PAGES" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h13v1h-13zM17 16h13v1h-13zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h13v1h-13zM33 7h13v1h-13zM33 8h3v1h-3zM33 9h3v1h-3zM33 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h10v1h-10zM33 16h10v1h-10zM33 17h3v1h-3zM33 18h3v1h-3zM33 19h3v1h-3zM33 20h3v1h-3zM33 21h3v1h-3zM33 22h3v1h-3zM33 23h3v1h-3zM33 24h13v1h-13zM33 25h13v1h-13zM65 6h11v1h-11zM65 7h12v1h-12zM65 8h3v1h-3zM74 8h4v1h-4zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM74 15h4v1h-4zM65 16h12v1h-12zM65 17h11v1h-11zM65 18h3v1h-3zM65 19h3v1h-3zM65 20h3v1h-3zM65 21h3v1h-3zM65 22h3v1h-3zM65 23h3v1h-3zM65 24h3v1h-3zM65 25h3v1h-3zM83 6h9v1h-9zM82 7h11v1h-11zM81 8h4v1h-4zM90 8h4v1h-4zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM91 15h3v1h-3zM81 16h13v1h-13zM81 17h13v1h-13zM81 18h3v1h-3zM91 18h3v1h-3zM81 19h3v1h-3zM91 19h3v1h-3zM81 20h3v1h-3zM91 20h3v1h-3zM81 21h3v1h-3zM91 21h3v1h-3zM81 22h3v1h-3zM91 22h3v1h-3zM81 23h3v1h-3zM91 23h3v1h-3zM81 24h3v1h-3zM91 24h3v1h-3zM81 25h3v1h-3zM91 25h3v1h-3zM99 6h9v1h-9zM98 7h11v1h-11zM97 8h4v1h-4zM106 8h4v1h-4zM97 9h3v1h-3zM107 9h3v1h-3zM97 10h3v1h-3zM107 10h3v1h-3zM97 11h3v1h-3zM97 12h3v1h-3zM97 13h3v1h-3zM97 14h3v1h-3zM97 15h3v1h-3zM103 15h7v1h-7zM97 16h3v1h-3zM103 16h7v1h-7zM97 17h3v1h-3zM107 17h3v1h-3zM97 18h3v1h-3zM107 18h3v1h-3zM97 19h3v1h-3zM107 19h3v1h-3zM97 20h3v1h-3zM107 20h3v1h-3zM97 21h3v1h-3zM107 21h3v1h-3zM97 22h3v1h-3zM107 22h3v1h-3zM97 23h4v1h-4zM106 23h4v1h-4zM98 24h11v1h-11zM99 25h9v1h-9zM113 6h13v1h-13zM113 7h13v1h-13zM113 8h3v1h-3zM113 9h3v1h-3zM113 10h3v1h-3zM113 11h3v1h-3zM113 12h3v1h-3zM113 13h3v1h-3zM113 14h3v1h-3zM113 15h10v1h-10zM113 16h10v1h-10zM113 17h3v1h-3zM113 18h3v1h-3zM113 19h3v1h-3zM113 20h3v1h-3zM113 21h3v1h-3zM113 22h3v1h-3zM113 23h3v1h-3zM113 24h13v1h-13zM113 25h13v1h-13zM131 6h9v1h-9zM130 7h11v1h-11zM129 8h4v1h-4zM138 8h4v1h-4zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h3v1h-3zM129 12h3v1h-3zM129 13h3v1h-3zM129 14h4v1h-4zM130 15h10v1h-10zM131 16h10v1h-10zM138 17h4v1h-4zM139 18h3v1h-3zM139 19h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h4v1h-4zM138 23h4v1h-4zM130 24h11v1h-11zM131 25h9v1h-9z"/></svg></h2>
-  <p class="lede">Twelve pages, one for each F key. Everything plays at once: a song on the tracker, a chord held on PLAY, the tape rolling, the camera reading the ANS plate. It runs from memory, so once it has started the stick can come out.</p>
-  <div class="cards">
-      <a class="card" href="img/play.png"><div class="shot"><img src="img/play.png" alt="the PLAY page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F1</kbd><span>PLAY</span></div><p>An omnichord: chord buttons on the number row, a strum plate on the letters and the touchpad, a rhythm section with a bass that follows the chord.</p></div></a>
-      <a class="card" href="img/seq.png"><div class="shot"><img src="img/seq.png" alt="the SEQ page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F2</kbd><span>SEQ</span></div><p>A tracker: patterns of eight channels, an order list, effect columns, every note on the exact sample.</p></div></a>
-      <a class="card" href="img/wave.png"><div class="shot"><img src="img/wave.png" alt="the WAVE page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F3</kbd><span>WAVE</span></div><p>A Fairlight-style page, green on black: waves drawn with the touchpad, harmonics, a 3D stack of them, and a sampler.</p></div></a>
-      <a class="card" href="img/stretch.png"><div class="shot"><img src="img/stretch.png" alt="the STRETCH page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F4</kbd><span>STRETCH</span></div><p>Freezes the phrase you just played and stretches it, up to a thousand times slower, while you play on.</p></div></a>
-      <a class="card" href="img/fm.png"><div class="shot"><img src="img/fm.png" alt="the OPERATOR page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F5</kbd><span>OPERATOR</span></div><p>Four-operator FM: eight algorithms, envelopes, an LFO, four patches to play anywhere.</p></div></a>
-      <a class="card" href="img/tape-playing.png"><div class="shot"><img src="img/tape-playing.png" alt="the TAPE page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F6</kbd><span>TAPE</span></div><p>An eight-track tape with reels, wow and hiss: record, overdub, loop, bounce, build whole songs.</p></div></a>
-      <a class="card" href="img/file.png"><div class="shot"><img src="img/file.png" alt="the FILE page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F7</kbd><span>FILE</span></div><p>Projects on the stick, songs out as WAV, MIDI and Ableton Link, the log, and an installer.</p></div></a>
-      <a class="card" href="img/mix.png"><div class="shot"><img src="img/mix.png" alt="the MIX page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F8</kbd><span>MIX</span></div><p>A strip for every source, sends to an echo and a reverb, and a filter, drive and crusher on the master.</p></div></a>
-      <a class="card" href="img/touch.png"><div class="shot"><img src="img/touch.png" alt="the TOUCH page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F9</kbd><span>TOUCH</span></div><p>A crackle box: eight bare pads of a small circuit. Two fingers close it, and pressing harder bends it.</p></div></a>
-      <a class="card" href="img/fx.png"><div class="shot"><img src="img/fx.png" alt="the FX page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F10</kbd><span>FX</span></div><p>Effects to play live over a song: repeat, reverse, tape stop, gate, a dub throw, a reverb freeze.</p></div></a>
-      <a class="card" href="img/ans.png"><div class="shot"><img src="img/ans.png" alt="the ANS page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F11</kbd><span>ANS</span></div><p>Murzin&#x27;s ANS: a plate of 360 tones read by a moving slit. Draw on it, or let the camera be the score.</p></div></a>
-      <a class="card" href="img/xen-upic.png"><div class="shot"><img src="img/xen-upic.png" alt="the XENAKIS page" loading="lazy"></div>
-        <div class="cap"><div class="ct"><kbd>F12</kbd><span>XENAKIS</span></div><p>Four of Xenakis&#x27;s ways of making music: UPIC&#x27;s drawn arcs, GENDY, stochastic clouds and sieves.</p></div></a>
-  </div>
-  <div class="views">
-    <figure><img src="img/xen-gendy.png" alt="GENDY" loading="lazy"><figcaption>XENAKIS · GENDY</figcaption></figure>
-    <figure><img src="img/xen-clouds.png" alt="clouds" loading="lazy"><figcaption>XENAKIS · CLOUDS</figcaption></figure>
-    <figure><img src="img/xen-sieves.png" alt="sieves" loading="lazy"><figcaption>XENAKIS · SIEVES</figcaption></figure>
-    <figure><img src="img/xen-upic.png" alt="UPIC" loading="lazy"><figcaption>XENAKIS · UPIC</figcaption></figure>
+<section id="what" style="padding-top:56px"><div class="wrap">
+  <div class="three">
+    <div><b>NO OPERATING SYSTEM</b><p>BARE! is the program the PC starts, and nothing else runs: the keys, the screen and the sound chip belong to the instrument.</p></div>
+    <div><b>OLD PCS AND NEW</b><p>Any PC since the Pentium Pro, from 32 MB of memory up, BIOS or UEFI. It sizes itself to what it finds.</p></div>
+    <div><b>YOUR WORK ON THE STICK</b><p>It runs from memory, so the stick can come out while you play. Projects, songs and your own instruments are saved on it.</p></div>
   </div>
 </div></section>
 
-<section id="instruments"><div class="wrap">
-  <h2><svg class="px" viewBox="0 6 176 20" role="img" aria-label="INSTRUMENTS" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M4 6h7v1h-7zM4 7h7v1h-7zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM4 24h7v1h-7zM4 25h7v1h-7zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h4v1h-4zM27 11h3v1h-3zM17 12h5v1h-5zM27 12h3v1h-3zM17 13h6v1h-6zM27 13h3v1h-3zM17 14h3v1h-3zM21 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM22 15h3v1h-3zM27 15h3v1h-3zM17 16h3v1h-3zM23 16h3v1h-3zM27 16h3v1h-3zM17 17h3v1h-3zM24 17h6v1h-6zM17 18h3v1h-3zM25 18h5v1h-5zM17 19h3v1h-3zM26 19h4v1h-4zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM35 6h9v1h-9zM34 7h11v1h-11zM33 8h4v1h-4zM42 8h4v1h-4zM33 9h3v1h-3zM43 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h4v1h-4zM34 15h10v1h-10zM35 16h10v1h-10zM42 17h4v1h-4zM43 18h3v1h-3zM43 19h3v1h-3zM43 20h3v1h-3zM33 21h3v1h-3zM43 21h3v1h-3zM33 22h3v1h-3zM43 22h3v1h-3zM33 23h4v1h-4zM42 23h4v1h-4zM34 24h11v1h-11zM35 25h9v1h-9zM49 6h13v1h-13zM49 7h13v1h-13zM54 8h3v1h-3zM54 9h3v1h-3zM54 10h3v1h-3zM54 11h3v1h-3zM54 12h3v1h-3zM54 13h3v1h-3zM54 14h3v1h-3zM54 15h3v1h-3zM54 16h3v1h-3zM54 17h3v1h-3zM54 18h3v1h-3zM54 19h3v1h-3zM54 20h3v1h-3zM54 21h3v1h-3zM54 22h3v1h-3zM54 23h3v1h-3zM54 24h3v1h-3zM54 25h3v1h-3zM65 6h11v1h-11zM65 7h12v1h-12zM65 8h3v1h-3zM74 8h4v1h-4zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM74 15h4v1h-4zM65 16h12v1h-12zM65 17h11v1h-11zM65 18h6v1h-6zM65 19h3v1h-3zM69 19h3v1h-3zM65 20h3v1h-3zM70 20h3v1h-3zM65 21h3v1h-3zM71 21h3v1h-3zM65 22h3v1h-3zM72 22h3v1h-3zM65 23h3v1h-3zM73 23h3v1h-3zM65 24h3v1h-3zM74 24h3v1h-3zM65 25h3v1h-3zM75 25h3v1h-3zM81 6h3v1h-3zM91 6h3v1h-3zM81 7h3v1h-3zM91 7h3v1h-3zM81 8h3v1h-3zM91 8h3v1h-3zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM91 15h3v1h-3zM81 16h3v1h-3zM91 16h3v1h-3zM81 17h3v1h-3zM91 17h3v1h-3zM81 18h3v1h-3zM91 18h3v1h-3zM81 19h3v1h-3zM91 19h3v1h-3zM81 20h3v1h-3zM91 20h3v1h-3zM81 21h3v1h-3zM91 21h3v1h-3zM81 22h3v1h-3zM91 22h3v1h-3zM81 23h4v1h-4zM90 23h4v1h-4zM82 24h11v1h-11zM83 25h9v1h-9zM97 6h3v1h-3zM108 6h3v1h-3zM97 7h3v1h-3zM108 7h3v1h-3zM97 8h4v1h-4zM107 8h4v1h-4zM97 9h5v1h-5zM106 9h5v1h-5zM97 10h6v1h-6zM105 10h6v1h-6zM97 11h6v1h-6zM105 11h6v1h-6zM97 12h3v1h-3zM101 12h6v1h-6zM108 12h3v1h-3zM97 13h3v1h-3zM102 13h4v1h-4zM108 13h3v1h-3zM97 14h3v1h-3zM102 14h4v1h-4zM108 14h3v1h-3zM97 15h3v1h-3zM103 15h2v1h-2zM108 15h3v1h-3zM97 16h3v1h-3zM108 16h3v1h-3zM97 17h3v1h-3zM108 17h3v1h-3zM97 18h3v1h-3zM108 18h3v1h-3zM97 19h3v1h-3zM108 19h3v1h-3zM97 20h3v1h-3zM108 20h3v1h-3zM97 21h3v1h-3zM108 21h3v1h-3zM97 22h3v1h-3zM108 22h3v1h-3zM97 23h3v1h-3zM108 23h3v1h-3zM97 24h3v1h-3zM108 24h3v1h-3zM97 25h3v1h-3zM108 25h3v1h-3zM113 6h13v1h-13zM113 7h13v1h-13zM113 8h3v1h-3zM113 9h3v1h-3zM113 10h3v1h-3zM113 11h3v1h-3zM113 12h3v1h-3zM113 13h3v1h-3zM113 14h3v1h-3zM113 15h10v1h-10zM113 16h10v1h-10zM113 17h3v1h-3zM113 18h3v1h-3zM113 19h3v1h-3zM113 20h3v1h-3zM113 21h3v1h-3zM113 22h3v1h-3zM113 23h3v1h-3zM113 24h13v1h-13zM113 25h13v1h-13zM129 6h3v1h-3zM139 6h3v1h-3zM129 7h3v1h-3zM139 7h3v1h-3zM129 8h3v1h-3zM139 8h3v1h-3zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h4v1h-4zM139 11h3v1h-3zM129 12h5v1h-5zM139 12h3v1h-3zM129 13h6v1h-6zM139 13h3v1h-3zM129 14h3v1h-3zM133 14h3v1h-3zM139 14h3v1h-3zM129 15h3v1h-3zM134 15h3v1h-3zM139 15h3v1h-3zM129 16h3v1h-3zM135 16h3v1h-3zM139 16h3v1h-3zM129 17h3v1h-3zM136 17h6v1h-6zM129 18h3v1h-3zM137 18h5v1h-5zM129 19h3v1h-3zM138 19h4v1h-4zM129 20h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h3v1h-3zM139 23h3v1h-3zM129 24h3v1h-3zM139 24h3v1h-3zM129 25h3v1h-3zM139 25h3v1h-3zM145 6h13v1h-13zM145 7h13v1h-13zM150 8h3v1h-3zM150 9h3v1h-3zM150 10h3v1h-3zM150 11h3v1h-3zM150 12h3v1h-3zM150 13h3v1h-3zM150 14h3v1h-3zM150 15h3v1h-3zM150 16h3v1h-3zM150 17h3v1h-3zM150 18h3v1h-3zM150 19h3v1h-3zM150 20h3v1h-3zM150 21h3v1h-3zM150 22h3v1h-3zM150 23h3v1h-3zM150 24h3v1h-3zM150 25h3v1h-3zM163 6h9v1h-9zM162 7h11v1h-11zM161 8h4v1h-4zM170 8h4v1h-4zM161 9h3v1h-3zM171 9h3v1h-3zM161 10h3v1h-3zM171 10h3v1h-3zM161 11h3v1h-3zM161 12h3v1h-3zM161 13h3v1h-3zM161 14h4v1h-4zM162 15h10v1h-10zM163 16h10v1h-10zM170 17h4v1h-4zM171 18h3v1h-3zM171 19h3v1h-3zM171 20h3v1h-3zM161 21h3v1h-3zM171 21h3v1h-3zM161 22h3v1h-3zM171 22h3v1h-3zM161 23h4v1h-4zM170 23h4v1h-4zM162 24h11v1h-11zM163 25h9v1h-9z"/></svg></h2>
-  <div class="split" style="margin-top:30px">
+<section id="new"><div class="wrap">
+  <h2><svg class="px" viewBox="0 6 160 20" role="img" aria-label="HIGHLIGHTS" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h3v1h-3zM11 6h3v1h-3zM1 7h3v1h-3zM11 7h3v1h-3zM1 8h3v1h-3zM11 8h3v1h-3zM1 9h3v1h-3zM11 9h3v1h-3zM1 10h3v1h-3zM11 10h3v1h-3zM1 11h3v1h-3zM11 11h3v1h-3zM1 12h3v1h-3zM11 12h3v1h-3zM1 13h3v1h-3zM11 13h3v1h-3zM1 14h3v1h-3zM11 14h3v1h-3zM1 15h13v1h-13zM1 16h13v1h-13zM1 17h3v1h-3zM11 17h3v1h-3zM1 18h3v1h-3zM11 18h3v1h-3zM1 19h3v1h-3zM11 19h3v1h-3zM1 20h3v1h-3zM11 20h3v1h-3zM1 21h3v1h-3zM11 21h3v1h-3zM1 22h3v1h-3zM11 22h3v1h-3zM1 23h3v1h-3zM11 23h3v1h-3zM1 24h3v1h-3zM11 24h3v1h-3zM1 25h3v1h-3zM11 25h3v1h-3zM20 6h7v1h-7zM20 7h7v1h-7zM22 8h3v1h-3zM22 9h3v1h-3zM22 10h3v1h-3zM22 11h3v1h-3zM22 12h3v1h-3zM22 13h3v1h-3zM22 14h3v1h-3zM22 15h3v1h-3zM22 16h3v1h-3zM22 17h3v1h-3zM22 18h3v1h-3zM22 19h3v1h-3zM22 20h3v1h-3zM22 21h3v1h-3zM22 22h3v1h-3zM22 23h3v1h-3zM20 24h7v1h-7zM20 25h7v1h-7zM35 6h9v1h-9zM34 7h11v1h-11zM33 8h4v1h-4zM42 8h4v1h-4zM33 9h3v1h-3zM43 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h3v1h-3zM39 15h7v1h-7zM33 16h3v1h-3zM39 16h7v1h-7zM33 17h3v1h-3zM43 17h3v1h-3zM33 18h3v1h-3zM43 18h3v1h-3zM33 19h3v1h-3zM43 19h3v1h-3zM33 20h3v1h-3zM43 20h3v1h-3zM33 21h3v1h-3zM43 21h3v1h-3zM33 22h3v1h-3zM43 22h3v1h-3zM33 23h4v1h-4zM42 23h4v1h-4zM34 24h11v1h-11zM35 25h9v1h-9zM49 6h3v1h-3zM59 6h3v1h-3zM49 7h3v1h-3zM59 7h3v1h-3zM49 8h3v1h-3zM59 8h3v1h-3zM49 9h3v1h-3zM59 9h3v1h-3zM49 10h3v1h-3zM59 10h3v1h-3zM49 11h3v1h-3zM59 11h3v1h-3zM49 12h3v1h-3zM59 12h3v1h-3zM49 13h3v1h-3zM59 13h3v1h-3zM49 14h3v1h-3zM59 14h3v1h-3zM49 15h13v1h-13zM49 16h13v1h-13zM49 17h3v1h-3zM59 17h3v1h-3zM49 18h3v1h-3zM59 18h3v1h-3zM49 19h3v1h-3zM59 19h3v1h-3zM49 20h3v1h-3zM59 20h3v1h-3zM49 21h3v1h-3zM59 21h3v1h-3zM49 22h3v1h-3zM59 22h3v1h-3zM49 23h3v1h-3zM59 23h3v1h-3zM49 24h3v1h-3zM59 24h3v1h-3zM49 25h3v1h-3zM59 25h3v1h-3zM65 6h3v1h-3zM65 7h3v1h-3zM65 8h3v1h-3zM65 9h3v1h-3zM65 10h3v1h-3zM65 11h3v1h-3zM65 12h3v1h-3zM65 13h3v1h-3zM65 14h3v1h-3zM65 15h3v1h-3zM65 16h3v1h-3zM65 17h3v1h-3zM65 18h3v1h-3zM65 19h3v1h-3zM65 20h3v1h-3zM65 21h3v1h-3zM65 22h3v1h-3zM65 23h3v1h-3zM65 24h13v1h-13zM65 25h13v1h-13zM84 6h7v1h-7zM84 7h7v1h-7zM86 8h3v1h-3zM86 9h3v1h-3zM86 10h3v1h-3zM86 11h3v1h-3zM86 12h3v1h-3zM86 13h3v1h-3zM86 14h3v1h-3zM86 15h3v1h-3zM86 16h3v1h-3zM86 17h3v1h-3zM86 18h3v1h-3zM86 19h3v1h-3zM86 20h3v1h-3zM86 21h3v1h-3zM86 22h3v1h-3zM86 23h3v1h-3zM84 24h7v1h-7zM84 25h7v1h-7zM99 6h9v1h-9zM98 7h11v1h-11zM97 8h4v1h-4zM106 8h4v1h-4zM97 9h3v1h-3zM107 9h3v1h-3zM97 10h3v1h-3zM107 10h3v1h-3zM97 11h3v1h-3zM97 12h3v1h-3zM97 13h3v1h-3zM97 14h3v1h-3zM97 15h3v1h-3zM103 15h7v1h-7zM97 16h3v1h-3zM103 16h7v1h-7zM97 17h3v1h-3zM107 17h3v1h-3zM97 18h3v1h-3zM107 18h3v1h-3zM97 19h3v1h-3zM107 19h3v1h-3zM97 20h3v1h-3zM107 20h3v1h-3zM97 21h3v1h-3zM107 21h3v1h-3zM97 22h3v1h-3zM107 22h3v1h-3zM97 23h4v1h-4zM106 23h4v1h-4zM98 24h11v1h-11zM99 25h9v1h-9zM113 6h3v1h-3zM123 6h3v1h-3zM113 7h3v1h-3zM123 7h3v1h-3zM113 8h3v1h-3zM123 8h3v1h-3zM113 9h3v1h-3zM123 9h3v1h-3zM113 10h3v1h-3zM123 10h3v1h-3zM113 11h3v1h-3zM123 11h3v1h-3zM113 12h3v1h-3zM123 12h3v1h-3zM113 13h3v1h-3zM123 13h3v1h-3zM113 14h3v1h-3zM123 14h3v1h-3zM113 15h13v1h-13zM113 16h13v1h-13zM113 17h3v1h-3zM123 17h3v1h-3zM113 18h3v1h-3zM123 18h3v1h-3zM113 19h3v1h-3zM123 19h3v1h-3zM113 20h3v1h-3zM123 20h3v1h-3zM113 21h3v1h-3zM123 21h3v1h-3zM113 22h3v1h-3zM123 22h3v1h-3zM113 23h3v1h-3zM123 23h3v1h-3zM113 24h3v1h-3zM123 24h3v1h-3zM113 25h3v1h-3zM123 25h3v1h-3zM129 6h13v1h-13zM129 7h13v1h-13zM134 8h3v1h-3zM134 9h3v1h-3zM134 10h3v1h-3zM134 11h3v1h-3zM134 12h3v1h-3zM134 13h3v1h-3zM134 14h3v1h-3zM134 15h3v1h-3zM134 16h3v1h-3zM134 17h3v1h-3zM134 18h3v1h-3zM134 19h3v1h-3zM134 20h3v1h-3zM134 21h3v1h-3zM134 22h3v1h-3zM134 23h3v1h-3zM134 24h3v1h-3zM134 25h3v1h-3zM147 6h9v1h-9zM146 7h11v1h-11zM145 8h4v1h-4zM154 8h4v1h-4zM145 9h3v1h-3zM155 9h3v1h-3zM145 10h3v1h-3zM155 10h3v1h-3zM145 11h3v1h-3zM145 12h3v1h-3zM145 13h3v1h-3zM145 14h4v1h-4zM146 15h10v1h-10zM147 16h10v1h-10zM154 17h4v1h-4zM155 18h3v1h-3zM155 19h3v1h-3zM155 20h3v1h-3zM145 21h3v1h-3zM155 21h3v1h-3zM145 22h3v1h-3zM155 22h3v1h-3zM145 23h4v1h-4zM154 23h4v1h-4zM146 24h11v1h-11zM147 25h9v1h-9z"/></svg></h2>
+  <p class="lede">An omnichord you play like the real one, a lineage of homages with their histories, and Doom's first level as breakcore. This is the first release, a beta: it works, and it is still being tried on more machines.</p>
+
+  <div class="feature">
+    <div class="screen"><img src="img/play.png" alt="the PLAY page: the OM-108's chord buttons and strumplate" width="1280" height="800" loading="lazy"></div>
     <div>
-      <p>An instrument is a text file on the stick: what it sounds like, and how it is played — the letter rows, the touchpad as a strip or a grid of pads, an arpeggio, a drone. Five come with it: STYLO, THEREMIN, GRIDPADS, SIEVHARP and SHRUTI.</p>
-      <p>SHRUTI is a shruti box, the drone box of Indian music. Its keys open reeds tuned in just intonation, and a finger moving to and fro on the touchpad pumps the bellows.</p>
-<pre class="file"><span class="c"># the whole of SHRUTI.TXT, less its comments</span>
+      <p class="kicker"><kbd>F1</kbd> PLAY</p>
+      <h3>An OM-108 on the keyboard</h3>
+      <p>PLAY is laid out after Suzuki's OM-108 and its owner's manual. The three letter rows are its MAJOR, MINOR and 7th chord buttons, pressed together for maj7, m7, dim, aug, sus4 and add9; the bottom row and the touchpad are its 13-string strumplate.</p>
+      <p>Ten voices, ten rhythms that change at the next bar, AUTO chords and bass, HOLD, SYNC START, a keyboard mode with drums, and MIDI out on its channels.</p>
+      <p class="try">Try it: hold <kbd>6</kbd> and run a finger along the keys from <kbd>Z</kbd> to <kbd>/</kbd>.</p>
+    </div>
+  </div>
+
+  <div class="feature flip">
+    <div class="quad">
+      <img src="img/lin-reich.png" alt="REICH" width="1280" height="800" loading="lazy"><img src="img/lin-carlos.png" alt="CARLOS" width="1280" height="800" loading="lazy">
+      <img src="img/lin-radigue.png" alt="RADIGUE" width="1280" height="800" loading="lazy"><img src="img/lin-merzbow.png" alt="MERZBOW" width="1280" height="800" loading="lazy">
+    </div>
+    <div>
+      <p class="kicker"><kbd>F11</kbd> LINEAGE</p>
+      <h3>Six homages, each with its history</h3>
+      <p>Instruments after the people who made the music: Iannis Xenakis, with five views of his own; Murzin's ANS synthesizer, with a drone sketch after Coil; Steve Reich's phasing; Wendy Carlos's alpha, beta and gamma scales; Éliane Radigue's slow drones; Merzbow's noise from junk.</p>
+      <p>Each one plays, and each has a short history beside it: who, how, and what to listen to. TOUCH has one too: Michel Waisvisz and his Crackle Box.</p>
+      <div class="chips"><span>XENAKIS<b>1954</b></span><span>ANS<b>1957</b></span><span>REICH<b>1965</b></span><span>CARLOS<b>1968</b></span><span>RADIGUE<b>1969</b></span><span>MERZBOW<b>1979</b></span></div>
+    </div>
+  </div>
+
+  <div class="feature">
+    <div class="screen"><img src="img/xen-meta.png" alt="METASTASEIS: glissandi between two guide lines, and the surface they make" width="1280" height="800" loading="lazy"></div>
+    <div>
+      <p class="kicker"><kbd>F12</kbd> LINEAGE › XENAKIS</p>
+      <h3>Metastaseis</h3>
+      <p>In 1954 Iannis Xenakis drew 46 string glissandi as straight lines on graph paper, and together they made curved surfaces — the same surfaces became the Philips Pavilion.</p>
+      <p>Here you set two guide lines, the strings are strung between them, and the surface turns in 3D while it sounds. <kbd>Enter</kbd> writes it onto UPIC's page.</p>
+    </div>
+  </div>
+
+  <div class="feature flip">
+    <div class="screen"><img src="img/seq-e1m1.png" alt="the tracker playing Freedoom's E1M1, arranged as breakcore" width="1280" height="800" loading="lazy"></div>
+    <div>
+      <p class="kicker"><kbd>F2</kbd> SEQ · <kbd>Shift</kbd>+<kbd>4</kbd></p>
+      <h3>E1M1, as breakcore</h3>
+      <p>The tracker reads Doom's first-level music from the WAD on your stick — yours, or Freedoom's — and lays it out on its grid: guitars and bass under chopped breakbeats at 172 BPM, snare rolls, stutters, a breakdown and a tape stop.</p>
+      <p class="try">The notes come from your WAD; the arrangement is BARE!'s. The picture is Freedoom's E1M1.</p>
+    </div>
+  </div>
+
+  <ul class="also">
+    <li><b>Keys follow the chord</b><kbd>Shift</kbd>+<kbd>K</kbd>: hold a chord on PLAY, and what you play on the other pages lands on it.</li>
+    <li><b>Your F keys</b>Each opens a page, a view, an instrument or nothing: on FILE's KEYS view, or drag the tabs.</li>
+    <li><b>In time with others</b>MIDI in and out over serial ports and USB, its clock both ways, and Ableton Link's tempo and beat.</li>
+    <li><b>On a floppy</b>All of it fits on one 1.44 MB diskette, <a href="#floppy">for a PC with a floppy drive</a>.</li>
+  </ul>
+  <p class="small" style="margin-top:18px">How it got here: <a href="https://github.com/willbearfruits/bare/blob/main/CHANGES.md">CHANGES.md</a>.</p>
+</div></section>
+
+<section id="pages"><div class="wrap">
+  <h2><svg class="px" viewBox="0 6 144 20" role="img" aria-label="THE PAGES" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h13v1h-13zM17 16h13v1h-13zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h13v1h-13zM33 7h13v1h-13zM33 8h3v1h-3zM33 9h3v1h-3zM33 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h10v1h-10zM33 16h10v1h-10zM33 17h3v1h-3zM33 18h3v1h-3zM33 19h3v1h-3zM33 20h3v1h-3zM33 21h3v1h-3zM33 22h3v1h-3zM33 23h3v1h-3zM33 24h13v1h-13zM33 25h13v1h-13zM65 6h11v1h-11zM65 7h12v1h-12zM65 8h3v1h-3zM74 8h4v1h-4zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM74 15h4v1h-4zM65 16h12v1h-12zM65 17h11v1h-11zM65 18h3v1h-3zM65 19h3v1h-3zM65 20h3v1h-3zM65 21h3v1h-3zM65 22h3v1h-3zM65 23h3v1h-3zM65 24h3v1h-3zM65 25h3v1h-3zM83 6h9v1h-9zM82 7h11v1h-11zM81 8h4v1h-4zM90 8h4v1h-4zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM91 15h3v1h-3zM81 16h13v1h-13zM81 17h13v1h-13zM81 18h3v1h-3zM91 18h3v1h-3zM81 19h3v1h-3zM91 19h3v1h-3zM81 20h3v1h-3zM91 20h3v1h-3zM81 21h3v1h-3zM91 21h3v1h-3zM81 22h3v1h-3zM91 22h3v1h-3zM81 23h3v1h-3zM91 23h3v1h-3zM81 24h3v1h-3zM91 24h3v1h-3zM81 25h3v1h-3zM91 25h3v1h-3zM99 6h9v1h-9zM98 7h11v1h-11zM97 8h4v1h-4zM106 8h4v1h-4zM97 9h3v1h-3zM107 9h3v1h-3zM97 10h3v1h-3zM107 10h3v1h-3zM97 11h3v1h-3zM97 12h3v1h-3zM97 13h3v1h-3zM97 14h3v1h-3zM97 15h3v1h-3zM103 15h7v1h-7zM97 16h3v1h-3zM103 16h7v1h-7zM97 17h3v1h-3zM107 17h3v1h-3zM97 18h3v1h-3zM107 18h3v1h-3zM97 19h3v1h-3zM107 19h3v1h-3zM97 20h3v1h-3zM107 20h3v1h-3zM97 21h3v1h-3zM107 21h3v1h-3zM97 22h3v1h-3zM107 22h3v1h-3zM97 23h4v1h-4zM106 23h4v1h-4zM98 24h11v1h-11zM99 25h9v1h-9zM113 6h13v1h-13zM113 7h13v1h-13zM113 8h3v1h-3zM113 9h3v1h-3zM113 10h3v1h-3zM113 11h3v1h-3zM113 12h3v1h-3zM113 13h3v1h-3zM113 14h3v1h-3zM113 15h10v1h-10zM113 16h10v1h-10zM113 17h3v1h-3zM113 18h3v1h-3zM113 19h3v1h-3zM113 20h3v1h-3zM113 21h3v1h-3zM113 22h3v1h-3zM113 23h3v1h-3zM113 24h13v1h-13zM113 25h13v1h-13zM131 6h9v1h-9zM130 7h11v1h-11zM129 8h4v1h-4zM138 8h4v1h-4zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h3v1h-3zM129 12h3v1h-3zM129 13h3v1h-3zM129 14h4v1h-4zM130 15h10v1h-10zM131 16h10v1h-10zM138 17h4v1h-4zM139 18h3v1h-3zM139 19h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h4v1h-4zM138 23h4v1h-4zM130 24h11v1h-11zM131 25h9v1h-9z"/></svg></h2>
+  <p class="lede">A page on each F key, and they all play at once: a song on the tracker, a chord held on PLAY, the tape rolling.</p>
+  <div class="tabs" role="tablist" aria-label="the pages"><button role="tab" id="t-play" aria-controls="p-play" aria-selected="true"><span>F1</span>PLAY</button><button role="tab" id="t-seq" aria-controls="p-seq" aria-selected="false" tabindex="-1"><span>F2</span>SEQ</button><button role="tab" id="t-wave" aria-controls="p-wave" aria-selected="false" tabindex="-1"><span>F3</span>WAVE</button><button role="tab" id="t-stretch" aria-controls="p-stretch" aria-selected="false" tabindex="-1"><span>F4</span>STRETCH</button><button role="tab" id="t-operator" aria-controls="p-operator" aria-selected="false" tabindex="-1"><span>F5</span>OPERATOR</button><button role="tab" id="t-tape" aria-controls="p-tape" aria-selected="false" tabindex="-1"><span>F6</span>TAPE</button><button role="tab" id="t-file" aria-controls="p-file" aria-selected="false" tabindex="-1"><span>F7</span>FILE</button><button role="tab" id="t-mix" aria-controls="p-mix" aria-selected="false" tabindex="-1"><span>F8</span>MIX</button><button role="tab" id="t-touch" aria-controls="p-touch" aria-selected="false" tabindex="-1"><span>F9</span>TOUCH</button><button role="tab" id="t-fx" aria-controls="p-fx" aria-selected="false" tabindex="-1"><span>F10</span>FX</button><button role="tab" id="t-lineage" aria-controls="p-lineage" aria-selected="false" tabindex="-1"><span>F11</span>LINEAGE</button><button role="tab" id="t-xenakis" aria-controls="p-xenakis" aria-selected="false" tabindex="-1"><span>F12</span>XENAKIS</button></div>
+  <div class="deck"><div class="panel on" role="tabpanel" id="p-play" aria-labelledby="t-play"><div class="screen"><img src="img/play.png" alt="PLAY · OMNICHORD" width="1280" height="800"></div><div class="cap"><div class="ct"><kbd>F1</kbd><h3>PLAY</h3></div><p>An omnichord after Suzuki&#x27;s OM-108: the three letter rows are its chord buttons, the bottom row and the touchpad its 13-string strumplate, with a rhythm section whose chords and bass follow you. F1 again goes on to the instruments made from text files.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/play.png" data-cap="Cmaj7: C with the 7th button beside it. The strings take the chord." data-alt="PLAY · OMNICHORD">OMNICHORD</button><button type="button" aria-pressed="false" data-img="img/play-keyboard.png" data-cap="Keyboard mode, as on the OM-108: two rows of keys, drums on the third and on the strings." data-alt="PLAY · KEYBOARD">KEYBOARD</button><button type="button" aria-pressed="false" data-img="img/inst-shruti.png" data-cap="A shruti box: the keys open reeds tuned in just intonation, the touchpad pumps the bellows." data-alt="PLAY · SHRUTI">SHRUTI</button><button type="button" aria-pressed="false" data-img="img/inst-stylo.png" data-cap="The touchpad as a Stylophone&#x27;s strip." data-alt="PLAY · STYLO">STYLO</button><button type="button" aria-pressed="false" data-img="img/inst-gridpads.png" data-cap="A grid of pads with an arpeggio." data-alt="PLAY · GRIDPADS">GRIDPADS</button></div><p class="vcap">Cmaj7: C with the 7th button beside it. The strings take the chord.</p></div></div><div class="panel" role="tabpanel" id="p-seq" aria-labelledby="t-seq"><div class="screen"><img src="img/seq.png" alt="SEQ · DEMO" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F2</kbd><h3>SEQ</h3></div><p>A tracker: patterns of eight channels, an order list, effect columns, every note on the exact sample.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/seq.png" data-cap="One of the demo songs, playing." data-alt="SEQ · DEMO">DEMO</button><button type="button" aria-pressed="false" data-img="img/seq-e1m1.png" data-cap="Shift+4: Doom&#x27;s E1M1 from the WAD on the stick (here Freedoom&#x27;s), arranged as breakcore." data-alt="SEQ · E1M1">E1M1</button></div><p class="vcap">One of the demo songs, playing.</p></div></div><div class="panel" role="tabpanel" id="p-wave" aria-labelledby="t-wave"><div class="screen"><img src="img/wave.png" alt="WAVE · 3D" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F3</kbd><h3>WAVE</h3></div><p>A Fairlight-style page, green on black: waves drawn with the touchpad, harmonics, a 3D stack of them, and a sampler.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/wave.png" data-cap="The eight waves, stacked in 3D." data-alt="WAVE · 3D">3D</button><button type="button" aria-pressed="false" data-img="img/wave-harmonics.png" data-cap="A wave built from 32 harmonics." data-alt="WAVE · HARMONICS">HARMONICS</button><button type="button" aria-pressed="false" data-img="img/wave-draw.png" data-cap="A wave drawn with a finger." data-alt="WAVE · DRAW">DRAW</button><button type="button" aria-pressed="false" data-img="img/wave-sample.png" data-cap="A sample: 8-bit or full, trimmed, looped, played on the keys." data-alt="WAVE · SAMPLER">SAMPLER</button></div><p class="vcap">The eight waves, stacked in 3D.</p></div></div><div class="panel" role="tabpanel" id="p-stretch" aria-labelledby="t-stretch"><div class="screen"><img src="img/stretch.png" alt="STRETCH" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F4</kbd><h3>STRETCH</h3></div><p>Freezes the phrase you just played and stretches it, up to a thousand times slower, while you play on.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-operator" aria-labelledby="t-operator"><div class="screen"><img src="img/fm.png" alt="OPERATOR" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F5</kbd><h3>OPERATOR</h3></div><p>Four-operator FM: eight algorithms, envelopes, an LFO, four patches to play anywhere.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-tape" aria-labelledby="t-tape"><div class="screen"><img src="img/tape-playing.png" alt="TAPE · PLAYING" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F6</kbd><h3>TAPE</h3></div><p>An eight-track tape with reels, wow and hiss: record, overdub, loop, bounce, build whole songs.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-file" aria-labelledby="t-file"><div class="screen"><img src="img/file.png" alt="FILE · PROJECTS" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F7</kbd><h3>FILE</h3></div><p>Projects on the stick, songs out as WAV, MIDI and Ableton Link, which key opens what, the log, and an installer.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/file.png" data-cap="Projects on the stick." data-alt="FILE · PROJECTS">PROJECTS</button><button type="button" aria-pressed="false" data-img="img/file-keys.png" data-cap="Which F key opens what: a page, a view, an instrument or nothing." data-alt="FILE · KEYS">KEYS</button></div><p class="vcap">Projects on the stick.</p></div></div><div class="panel" role="tabpanel" id="p-mix" aria-labelledby="t-mix"><div class="screen"><img src="img/mix.png" alt="MIX" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F8</kbd><h3>MIX</h3></div><p>A strip for every source, sends to an echo and a reverb, and a filter, drive and crusher on the master.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-touch" aria-labelledby="t-touch"><div class="screen"><img src="img/touch.png" alt="TOUCH" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F9</kbd><h3>TOUCH</h3></div><p>A crackle box after Michel Waisvisz&#x27;s Kraakdoos: the eight bare pads of a small circuit. Fingers close it, pressing harder bends it, and under the board is his story.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-fx" aria-labelledby="t-fx"><div class="screen"><img src="img/fx.png" alt="FX" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F10</kbd><h3>FX</h3></div><p>Effects to play live over a song: repeat, reverse, tape stop, gate, a dub throw, a reverb freeze.</p><p class="vcap"></p></div></div><div class="panel" role="tabpanel" id="p-lineage" aria-labelledby="t-lineage"><div class="screen"><img src="img/xen-meta.png" alt="LINEAGE · XENAKIS 1954" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F11</kbd><h3>LINEAGE</h3></div><p>Homages you can play, each with a short history: who made the music, how, and what to listen to. XENAKIS is the first of them, with five views of its own.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/xen-meta.png" data-cap="Iannis Xenakis: METASTASEIS, CLOUDS, SIEVES, UPIC and GENDY on a bar of their own. F12 goes straight there." data-alt="LINEAGE · XENAKIS 1954">XENAKIS 1954</button><button type="button" aria-pressed="false" data-img="img/ans.png" data-cap="Murzin&#x27;s photoelectronic synthesizer: 360 tones on a plate, read by a moving slit. With a drone sketch after Coil." data-alt="LINEAGE · ANS 1957">ANS 1957</button><button type="button" aria-pressed="false" data-img="img/lin-reich.png" data-cap="Steve Reich&#x27;s phasing: players loop one pattern while a process moves them apart and back." data-alt="LINEAGE · REICH 1965">REICH 1965</button><button type="button" aria-pressed="false" data-img="img/lin-carlos.png" data-cap="A Moog-style voice in equal temperament or Wendy Carlos&#x27;s alpha, beta and gamma scales." data-alt="LINEAGE · CARLOS 1968">CARLOS 1968</button><button type="button" aria-pressed="false" data-img="img/lin-radigue.png" data-cap="Éliane Radigue&#x27;s drones: eight partials a hair apart, beating, gliding over minutes." data-alt="LINEAGE · RADIGUE 1969">RADIGUE 1969</button><button type="button" aria-pressed="false" data-img="img/lin-merzbow.png" data-cap="Noise from junk: scraping fingers, struck metal, feedback, the program&#x27;s own bytes." data-alt="LINEAGE · MERZBOW 1979">MERZBOW 1979</button></div><p class="vcap">Iannis Xenakis: METASTASEIS, CLOUDS, SIEVES, UPIC and GENDY on a bar of their own. F12 goes straight there.</p></div></div><div class="panel" role="tabpanel" id="p-xenakis" aria-labelledby="t-xenakis"><div class="screen"><img src="img/xen-meta.png" alt="XENAKIS · METASTASEIS 1954" width="1280" height="800" loading="lazy"></div><div class="cap"><div class="ct"><kbd>F12</kbd><h3>XENAKIS</h3></div><p>Inside LINEAGE, on a key of its own: five of Iannis Xenakis&#x27;s ways of making music, in the order he found them.</p><div class="views"><button type="button" aria-pressed="true" data-img="img/xen-meta.png" data-cap="String glissandi strung between two guide lines: the ruled surfaces of the Philips Pavilion." data-alt="XENAKIS · METASTASEIS 1954">METASTASEIS 1954</button><button type="button" aria-pressed="false" data-img="img/xen-clouds.png" data-cap="Clouds of notes whose times, pitches and lengths are drawn from probabilities." data-alt="XENAKIS · CLOUDS 1956">CLOUDS 1956</button><button type="button" aria-pressed="false" data-img="img/xen-sieves.png" data-cap="Scales and rhythms from sieves: m@r, unions, intersections." data-alt="XENAKIS · SIEVES 1966">SIEVES 1966</button><button type="button" aria-pressed="false" data-img="img/xen-upic.png" data-cap="Draw arcs with a finger, and a cursor plays them." data-alt="XENAKIS · UPIC 1977">UPIC 1977</button><button type="button" aria-pressed="false" data-img="img/xen-gendy.png" data-cap="Dynamic stochastic synthesis: a waveform whose corners random-walk." data-alt="XENAKIS · GENDY 1991">GENDY 1991</button></div><p class="vcap">String glissandi strung between two guide lines: the ruled surfaces of the Philips Pavilion.</p></div></div></div>
+</div></section>
+
+<section id="get"><div class="wrap">
+  <h2><svg class="px" viewBox="0 6 96 20" role="img" aria-label="GET IT" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M3 6h9v1h-9zM2 7h11v1h-11zM1 8h4v1h-4zM10 8h4v1h-4zM1 9h3v1h-3zM11 9h3v1h-3zM1 10h3v1h-3zM11 10h3v1h-3zM1 11h3v1h-3zM1 12h3v1h-3zM1 13h3v1h-3zM1 14h3v1h-3zM1 15h3v1h-3zM7 15h7v1h-7zM1 16h3v1h-3zM7 16h7v1h-7zM1 17h3v1h-3zM11 17h3v1h-3zM1 18h3v1h-3zM11 18h3v1h-3zM1 19h3v1h-3zM11 19h3v1h-3zM1 20h3v1h-3zM11 20h3v1h-3zM1 21h3v1h-3zM11 21h3v1h-3zM1 22h3v1h-3zM11 22h3v1h-3zM1 23h4v1h-4zM10 23h4v1h-4zM2 24h11v1h-11zM3 25h9v1h-9zM17 6h13v1h-13zM17 7h13v1h-13zM17 8h3v1h-3zM17 9h3v1h-3zM17 10h3v1h-3zM17 11h3v1h-3zM17 12h3v1h-3zM17 13h3v1h-3zM17 14h3v1h-3zM17 15h10v1h-10zM17 16h10v1h-10zM17 17h3v1h-3zM17 18h3v1h-3zM17 19h3v1h-3zM17 20h3v1h-3zM17 21h3v1h-3zM17 22h3v1h-3zM17 23h3v1h-3zM17 24h13v1h-13zM17 25h13v1h-13zM33 6h13v1h-13zM33 7h13v1h-13zM38 8h3v1h-3zM38 9h3v1h-3zM38 10h3v1h-3zM38 11h3v1h-3zM38 12h3v1h-3zM38 13h3v1h-3zM38 14h3v1h-3zM38 15h3v1h-3zM38 16h3v1h-3zM38 17h3v1h-3zM38 18h3v1h-3zM38 19h3v1h-3zM38 20h3v1h-3zM38 21h3v1h-3zM38 22h3v1h-3zM38 23h3v1h-3zM38 24h3v1h-3zM38 25h3v1h-3zM68 6h7v1h-7zM68 7h7v1h-7zM70 8h3v1h-3zM70 9h3v1h-3zM70 10h3v1h-3zM70 11h3v1h-3zM70 12h3v1h-3zM70 13h3v1h-3zM70 14h3v1h-3zM70 15h3v1h-3zM70 16h3v1h-3zM70 17h3v1h-3zM70 18h3v1h-3zM70 19h3v1h-3zM70 20h3v1h-3zM70 21h3v1h-3zM70 22h3v1h-3zM70 23h3v1h-3zM68 24h7v1h-7zM68 25h7v1h-7zM81 6h13v1h-13zM81 7h13v1h-13zM86 8h3v1h-3zM86 9h3v1h-3zM86 10h3v1h-3zM86 11h3v1h-3zM86 12h3v1h-3zM86 13h3v1h-3zM86 14h3v1h-3zM86 15h3v1h-3zM86 16h3v1h-3zM86 17h3v1h-3zM86 18h3v1h-3zM86 19h3v1h-3zM86 20h3v1h-3zM86 21h3v1h-3zM86 22h3v1h-3zM86 23h3v1h-3zM86 24h3v1h-3zM86 25h3v1h-3z"/></svg></h2>
+  <p class="lede">You need a USB stick of 256 MB or more — everything on it is replaced — and a PC that can start from USB.</p>
+  <ol class="steps">
+    <li><div>
+      <h3>Download the image</h3>
+      <div class="dl">
+        <a class="btn primary" href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/bare-1.0-beta.img.zip">bare-1.0-beta.img.zip <small>6.8 MB</small></a>
+        <a class="btn" href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/bare-1.0-beta.img.xz">bare-1.0-beta.img.xz <small>2.6 MB</small></a>
+      </div>
+      <p class="small">The same image twice: the <code>.zip</code> for Windows and macOS, the <code>.xz</code> for Linux. There is also <a href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/bare-1.0-beta.iso">an ISO</a> for a CD or a virtual machine and <a href="#floppy">a floppy</a> (neither keeps projects), and <a href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/SHA256SUMS">SHA256SUMS</a>.</p>
+    </div></li>
+    <li><div>
+      <h3>Write it to the stick</h3>
+      <div class="os" role="tablist" aria-label="your computer">
+        <button role="tab" id="o-win" aria-controls="os-win" aria-selected="true">Windows</button>
+        <button role="tab" id="o-mac" aria-controls="os-mac" aria-selected="false" tabindex="-1">macOS</button>
+        <button role="tab" id="o-linux" aria-controls="os-linux" aria-selected="false" tabindex="-1">Linux</button>
+      </div>
+      <div class="ospanel on" role="tabpanel" id="os-win" aria-labelledby="o-win"><h4>WINDOWS</h4><ol>
+        <li>Get <a href="https://etcher.balena.io/">balenaEtcher</a>, <a href="https://rufus.ie/">Rufus</a> or <a href="https://www.raspberrypi.com/software/">Raspberry Pi Imager</a>.</li>
+        <li>Choose the <code>.zip</code> you downloaded (in Raspberry Pi Imager: <i>Choose OS</i>, then <i>Use custom</i>), then the stick, and write.</li>
+        <li>Windows may then offer to format the stick: say no. It can't read the part where BARE! keeps projects, and doesn't need to.</li>
+      </ol></div>
+      <div class="ospanel" role="tabpanel" id="os-mac" aria-labelledby="o-mac"><h4>MACOS</h4><ol>
+        <li>Get <a href="https://etcher.balena.io/">balenaEtcher</a> or <a href="https://www.raspberrypi.com/software/">Raspberry Pi Imager</a>.</li>
+        <li>In Etcher: <i>Flash from file</i> and the <code>.zip</code> you downloaded, <i>Select target</i> and the stick, <i>Flash</i>. (In Raspberry Pi Imager: <i>Choose OS</i>, then <i>Use custom</i>.)</li>
+        <li>If macOS then says a disk isn't readable, choose <i>Ignore</i>: that is where BARE! keeps projects.</li>
+      </ol></div>
+      <div class="ospanel" role="tabpanel" id="os-linux" aria-labelledby="o-linux"><h4>LINUX</h4>
+        <p>One line downloads the image and writes it. First find the stick: <code>lsblk</code> lists the disks, and the one with your stick's size is it, <code>sdb</code> for example.</p>
+        <div class="cmd"><code id="curl">curl -L https://github.com/willbearfruits/bare/releases/download/v1.0-beta/bare-1.0-beta.img.xz | xz -dc | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress</code><button type="button" class="copy" data-for="curl">copy</button></div>
+        <p class="warn">Put the stick's name where <code>sdX</code> is. Whatever disk you name is overwritten.</p>
+        <p class="small">Or balenaEtcher with the <code>.zip</code>, as on the other systems.</p>
+      </div>
+      <p class="small" style="margin-top:14px">Why not straight from this page? A web page can't write to a USB stick: browsers keep disks out of its reach, on purpose, and their USB access leaves storage devices out. So it takes one of these tools, once.</p>
+    </div></li>
+    <li><div>
+      <h3>Start the computer from it</h3>
+      <p>Turn Secure Boot off in the firmware settings. Plug the stick in and pick it from the boot menu: usually <kbd>F12</kbd>, <kbd>F9</kbd>, <kbd>F8</kbd> or <kbd>Esc</kbd> at power-on.</p>
+    </div></li>
+    <li><div>
+      <h3>Play</h3>
+      <p>When the splash plays, press any key. Hold <kbd>6</kbd> and run a finger along the keys from <kbd>Z</kbd> to <kbd>/</kbd>: a C major chord, strummed. The F keys open the pages; <kbd>Shift</kbd>+<kbd>?</kbd> shows every key.</p>
+    </div></li>
+  </ol>
+  <p class="update"><b>Already have a BARE! stick?</b> Put <a href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/BARE.UPD">BARE.UPD</a> in its root and start from it: it updates itself and keeps your projects.</p>
+  <div class="floppy" id="floppy">
+    <div>
+      <h3>Got a floppy drive?</h3>
+      <p>BARE! fits on one 3.5" 1.44 MB diskette. It starts a PC that has a BIOS and a floppy drive, an internal one or a USB drive the BIOS boots from, and plays like the stick, but can't save.</p>
+      <a class="btn" href="https://github.com/willbearfruits/bare/releases/download/v1.0-beta/bare-1.0-beta-floppy.img">bare-1.0-beta-floppy.img <small>1.5 MB</small></a>
+    </div>
+    <div>
+      <ol>
+        <li><b>Linux:</b> <code>sudo dd if=bare-1.0-beta-floppy.img of=/dev/fd0 bs=18k</code>. A USB floppy drive is a <code>/dev/sdX</code>: <code>lsblk</code> shows which.</li>
+        <li><b>Windows:</b> <a href="http://www.chrysocome.net/rawwrite">RawWrite for Windows</a>: choose the image and drive A:, then Write.</li>
+        <li><b>macOS</b>, with a USB floppy drive: <code>diskutil list</code> finds it, <code>diskutil unmountDisk /dev/diskN</code>, then <code>sudo dd if=bare-1.0-beta-floppy.img of=/dev/rdiskN bs=18k</code>.</li>
+        <li>Put the floppy first in the BIOS boot order and start the PC. The drive reads for about a minute, then the splash plays.</li>
+      </ol>
+      <p class="small" style="margin:14px 0 0">Booted in emulators so far. GRUB starts it: Limine, the stick's boot loader, can't read floppy drives.</p>
+    </div>
+  </div>
+  <div class="facts">
+    <div><b>PLAYED ON</b>A ThinkPad X250 and an ASUS VivoBook (Intel 12th gen), BIOS and UEFI. It boots on 90 emulated PCs, from a Pentium II with 32 MB to 4K screens.</div>
+    <div><b>NOT TRIED YET</b>On real hardware: AC'97, the Sound Blaster 16, SATA and NVMe disks, the installer and Ethernet. Tried it? <a href="https://github.com/willbearfruits/bare/issues">Say how it went.</a></div>
+    <div><b>CAREFUL</b>The installer on the FILE page erases the disk you choose. Everything else leaves the computer as it was.</div>
+  </div>
+</div></section>
+
+<section id="splash"><div class="wrap">
+  <h2><svg class="px" viewBox="0 6 160 20" role="img" aria-label="THE SPLASH" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h13v1h-13zM17 16h13v1h-13zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h13v1h-13zM33 7h13v1h-13zM33 8h3v1h-3zM33 9h3v1h-3zM33 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h10v1h-10zM33 16h10v1h-10zM33 17h3v1h-3zM33 18h3v1h-3zM33 19h3v1h-3zM33 20h3v1h-3zM33 21h3v1h-3zM33 22h3v1h-3zM33 23h3v1h-3zM33 24h13v1h-13zM33 25h13v1h-13zM67 6h9v1h-9zM66 7h11v1h-11zM65 8h4v1h-4zM74 8h4v1h-4zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM65 12h3v1h-3zM65 13h3v1h-3zM65 14h4v1h-4zM66 15h10v1h-10zM67 16h10v1h-10zM74 17h4v1h-4zM75 18h3v1h-3zM75 19h3v1h-3zM75 20h3v1h-3zM65 21h3v1h-3zM75 21h3v1h-3zM65 22h3v1h-3zM75 22h3v1h-3zM65 23h4v1h-4zM74 23h4v1h-4zM66 24h11v1h-11zM67 25h9v1h-9zM81 6h11v1h-11zM81 7h12v1h-12zM81 8h3v1h-3zM90 8h4v1h-4zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM90 15h4v1h-4zM81 16h12v1h-12zM81 17h11v1h-11zM81 18h3v1h-3zM81 19h3v1h-3zM81 20h3v1h-3zM81 21h3v1h-3zM81 22h3v1h-3zM81 23h3v1h-3zM81 24h3v1h-3zM81 25h3v1h-3zM97 6h3v1h-3zM97 7h3v1h-3zM97 8h3v1h-3zM97 9h3v1h-3zM97 10h3v1h-3zM97 11h3v1h-3zM97 12h3v1h-3zM97 13h3v1h-3zM97 14h3v1h-3zM97 15h3v1h-3zM97 16h3v1h-3zM97 17h3v1h-3zM97 18h3v1h-3zM97 19h3v1h-3zM97 20h3v1h-3zM97 21h3v1h-3zM97 22h3v1h-3zM97 23h3v1h-3zM97 24h13v1h-13zM97 25h13v1h-13zM115 6h9v1h-9zM114 7h11v1h-11zM113 8h4v1h-4zM122 8h4v1h-4zM113 9h3v1h-3zM123 9h3v1h-3zM113 10h3v1h-3zM123 10h3v1h-3zM113 11h3v1h-3zM123 11h3v1h-3zM113 12h3v1h-3zM123 12h3v1h-3zM113 13h3v1h-3zM123 13h3v1h-3zM113 14h3v1h-3zM123 14h3v1h-3zM113 15h3v1h-3zM123 15h3v1h-3zM113 16h13v1h-13zM113 17h13v1h-13zM113 18h3v1h-3zM123 18h3v1h-3zM113 19h3v1h-3zM123 19h3v1h-3zM113 20h3v1h-3zM123 20h3v1h-3zM113 21h3v1h-3zM123 21h3v1h-3zM113 22h3v1h-3zM123 22h3v1h-3zM113 23h3v1h-3zM123 23h3v1h-3zM113 24h3v1h-3zM123 24h3v1h-3zM113 25h3v1h-3zM123 25h3v1h-3zM131 6h9v1h-9zM130 7h11v1h-11zM129 8h4v1h-4zM138 8h4v1h-4zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h3v1h-3zM129 12h3v1h-3zM129 13h3v1h-3zM129 14h4v1h-4zM130 15h10v1h-10zM131 16h10v1h-10zM138 17h4v1h-4zM139 18h3v1h-3zM139 19h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h4v1h-4zM138 23h4v1h-4zM130 24h11v1h-11zM131 25h9v1h-9zM145 6h3v1h-3zM155 6h3v1h-3zM145 7h3v1h-3zM155 7h3v1h-3zM145 8h3v1h-3zM155 8h3v1h-3zM145 9h3v1h-3zM155 9h3v1h-3zM145 10h3v1h-3zM155 10h3v1h-3zM145 11h3v1h-3zM155 11h3v1h-3zM145 12h3v1h-3zM155 12h3v1h-3zM145 13h3v1h-3zM155 13h3v1h-3zM145 14h3v1h-3zM155 14h3v1h-3zM145 15h13v1h-13zM145 16h13v1h-13zM145 17h3v1h-3zM155 17h3v1h-3zM145 18h3v1h-3zM155 18h3v1h-3zM145 19h3v1h-3zM155 19h3v1h-3zM145 20h3v1h-3zM155 20h3v1h-3zM145 21h3v1h-3zM155 21h3v1h-3zM145 22h3v1h-3zM155 22h3v1h-3zM145 23h3v1h-3zM155 23h3v1h-3zM145 24h3v1h-3zM155 24h3v1h-3zM145 25h3v1h-3zM155 25h3v1h-3z"/></svg></h2>
+  
+  
+  <div class="splash">
+    <figure><img src="img/splash-ans.png" alt="" width="1280" height="800" loading="lazy"><figcaption>SPLASH · ANS</figcaption></figure>
+    <figure><img src="img/splash-gendy.png" alt="" width="1280" height="800" loading="lazy"><figcaption>SPLASH · GENDY</figcaption></figure>
+    <figure><img src="img/splash-cmi.png" alt="" width="1280" height="800" loading="lazy"><figcaption>SPLASH · CMI</figcaption></figure>
+    <figure><img src="img/splash-meta.png" alt="" width="1280" height="800" loading="lazy"><figcaption>SPLASH · METASTASEIS</figcaption></figure>
+  </div>
+  <p class="small">A different splash each time it starts: a short piece, picture and sound.</p>
+</div></section>
+
+<section id="more"><div class="wrap">
+  <div class="two">
+    <div class="card">
+      <svg class="px small" viewBox="0 6 176 20" role="img" aria-label="INSTRUMENTS" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M4 6h7v1h-7zM4 7h7v1h-7zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM4 24h7v1h-7zM4 25h7v1h-7zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h4v1h-4zM27 11h3v1h-3zM17 12h5v1h-5zM27 12h3v1h-3zM17 13h6v1h-6zM27 13h3v1h-3zM17 14h3v1h-3zM21 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM22 15h3v1h-3zM27 15h3v1h-3zM17 16h3v1h-3zM23 16h3v1h-3zM27 16h3v1h-3zM17 17h3v1h-3zM24 17h6v1h-6zM17 18h3v1h-3zM25 18h5v1h-5zM17 19h3v1h-3zM26 19h4v1h-4zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM35 6h9v1h-9zM34 7h11v1h-11zM33 8h4v1h-4zM42 8h4v1h-4zM33 9h3v1h-3zM43 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h4v1h-4zM34 15h10v1h-10zM35 16h10v1h-10zM42 17h4v1h-4zM43 18h3v1h-3zM43 19h3v1h-3zM43 20h3v1h-3zM33 21h3v1h-3zM43 21h3v1h-3zM33 22h3v1h-3zM43 22h3v1h-3zM33 23h4v1h-4zM42 23h4v1h-4zM34 24h11v1h-11zM35 25h9v1h-9zM49 6h13v1h-13zM49 7h13v1h-13zM54 8h3v1h-3zM54 9h3v1h-3zM54 10h3v1h-3zM54 11h3v1h-3zM54 12h3v1h-3zM54 13h3v1h-3zM54 14h3v1h-3zM54 15h3v1h-3zM54 16h3v1h-3zM54 17h3v1h-3zM54 18h3v1h-3zM54 19h3v1h-3zM54 20h3v1h-3zM54 21h3v1h-3zM54 22h3v1h-3zM54 23h3v1h-3zM54 24h3v1h-3zM54 25h3v1h-3zM65 6h11v1h-11zM65 7h12v1h-12zM65 8h3v1h-3zM74 8h4v1h-4zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM74 15h4v1h-4zM65 16h12v1h-12zM65 17h11v1h-11zM65 18h6v1h-6zM65 19h3v1h-3zM69 19h3v1h-3zM65 20h3v1h-3zM70 20h3v1h-3zM65 21h3v1h-3zM71 21h3v1h-3zM65 22h3v1h-3zM72 22h3v1h-3zM65 23h3v1h-3zM73 23h3v1h-3zM65 24h3v1h-3zM74 24h3v1h-3zM65 25h3v1h-3zM75 25h3v1h-3zM81 6h3v1h-3zM91 6h3v1h-3zM81 7h3v1h-3zM91 7h3v1h-3zM81 8h3v1h-3zM91 8h3v1h-3zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM91 15h3v1h-3zM81 16h3v1h-3zM91 16h3v1h-3zM81 17h3v1h-3zM91 17h3v1h-3zM81 18h3v1h-3zM91 18h3v1h-3zM81 19h3v1h-3zM91 19h3v1h-3zM81 20h3v1h-3zM91 20h3v1h-3zM81 21h3v1h-3zM91 21h3v1h-3zM81 22h3v1h-3zM91 22h3v1h-3zM81 23h4v1h-4zM90 23h4v1h-4zM82 24h11v1h-11zM83 25h9v1h-9zM97 6h3v1h-3zM108 6h3v1h-3zM97 7h3v1h-3zM108 7h3v1h-3zM97 8h4v1h-4zM107 8h4v1h-4zM97 9h5v1h-5zM106 9h5v1h-5zM97 10h6v1h-6zM105 10h6v1h-6zM97 11h6v1h-6zM105 11h6v1h-6zM97 12h3v1h-3zM101 12h6v1h-6zM108 12h3v1h-3zM97 13h3v1h-3zM102 13h4v1h-4zM108 13h3v1h-3zM97 14h3v1h-3zM102 14h4v1h-4zM108 14h3v1h-3zM97 15h3v1h-3zM103 15h2v1h-2zM108 15h3v1h-3zM97 16h3v1h-3zM108 16h3v1h-3zM97 17h3v1h-3zM108 17h3v1h-3zM97 18h3v1h-3zM108 18h3v1h-3zM97 19h3v1h-3zM108 19h3v1h-3zM97 20h3v1h-3zM108 20h3v1h-3zM97 21h3v1h-3zM108 21h3v1h-3zM97 22h3v1h-3zM108 22h3v1h-3zM97 23h3v1h-3zM108 23h3v1h-3zM97 24h3v1h-3zM108 24h3v1h-3zM97 25h3v1h-3zM108 25h3v1h-3zM113 6h13v1h-13zM113 7h13v1h-13zM113 8h3v1h-3zM113 9h3v1h-3zM113 10h3v1h-3zM113 11h3v1h-3zM113 12h3v1h-3zM113 13h3v1h-3zM113 14h3v1h-3zM113 15h10v1h-10zM113 16h10v1h-10zM113 17h3v1h-3zM113 18h3v1h-3zM113 19h3v1h-3zM113 20h3v1h-3zM113 21h3v1h-3zM113 22h3v1h-3zM113 23h3v1h-3zM113 24h13v1h-13zM113 25h13v1h-13zM129 6h3v1h-3zM139 6h3v1h-3zM129 7h3v1h-3zM139 7h3v1h-3zM129 8h3v1h-3zM139 8h3v1h-3zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h4v1h-4zM139 11h3v1h-3zM129 12h5v1h-5zM139 12h3v1h-3zM129 13h6v1h-6zM139 13h3v1h-3zM129 14h3v1h-3zM133 14h3v1h-3zM139 14h3v1h-3zM129 15h3v1h-3zM134 15h3v1h-3zM139 15h3v1h-3zM129 16h3v1h-3zM135 16h3v1h-3zM139 16h3v1h-3zM129 17h3v1h-3zM136 17h6v1h-6zM129 18h3v1h-3zM137 18h5v1h-5zM129 19h3v1h-3zM138 19h4v1h-4zM129 20h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h3v1h-3zM139 23h3v1h-3zM129 24h3v1h-3zM139 24h3v1h-3zM129 25h3v1h-3zM139 25h3v1h-3zM145 6h13v1h-13zM145 7h13v1h-13zM150 8h3v1h-3zM150 9h3v1h-3zM150 10h3v1h-3zM150 11h3v1h-3zM150 12h3v1h-3zM150 13h3v1h-3zM150 14h3v1h-3zM150 15h3v1h-3zM150 16h3v1h-3zM150 17h3v1h-3zM150 18h3v1h-3zM150 19h3v1h-3zM150 20h3v1h-3zM150 21h3v1h-3zM150 22h3v1h-3zM150 23h3v1h-3zM150 24h3v1h-3zM150 25h3v1h-3zM163 6h9v1h-9zM162 7h11v1h-11zM161 8h4v1h-4zM170 8h4v1h-4zM161 9h3v1h-3zM171 9h3v1h-3zM161 10h3v1h-3zM171 10h3v1h-3zM161 11h3v1h-3zM161 12h3v1h-3zM161 13h3v1h-3zM161 14h4v1h-4zM162 15h10v1h-10zM163 16h10v1h-10zM170 17h4v1h-4zM171 18h3v1h-3zM171 19h3v1h-3zM171 20h3v1h-3zM161 21h3v1h-3zM171 21h3v1h-3zM161 22h3v1h-3zM171 22h3v1h-3zM161 23h4v1h-4zM170 23h4v1h-4zM162 24h11v1h-11zM163 25h9v1h-9z"/></svg>
+      <p>An instrument is a text file on the stick: what it sounds like, and how it is played — the letter rows, the touchpad as a strip or a grid of pads, an arpeggio, a drone. Five come with it. SHRUTI is a shruti box: its keys open reeds tuned in just intonation, and a finger moving on the touchpad pumps the bellows.</p>
+<pre class="file"><span class="c"># SHRUTI.TXT, less its comments</span>
 <span class="k">name:</span> SHRUTI
 <span class="s">[sound]</span>
 <span class="k">wave:</span> pulse   <span class="k">width:</span> 22   <span class="k">detune:</span> 8
@@ -179,52 +377,24 @@ footer svg.px { height: 30px; color: var(--dim); }
 <span class="k">tuning:</span> just
 <span class="k">hold:</span> toggle
 <span class="k">bellows:</span> yes</pre>
+      <p class="small" style="margin-bottom:0">The format: <a href="https://github.com/willbearfruits/bare/blob/main/INSTRUMENTS.md">INSTRUMENTS.md</a>.</p>
     </div>
-    <div class="screen"><img src="img/inst-shruti.png" alt="the SHRUTI instrument" loading="lazy"></div>
-  </div>
-</div></section>
-
-<section id="doom"><div class="wrap">
-  <div class="split">
-    <div class="screen"><img src="img/doom.png" alt="Doom in BARE!" loading="lazy"></div>
-    <div>
-      <h2><svg class="px" viewBox="0 6 80 22" role="img" aria-label="IDDQD" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M4 6h7v1h-7zM4 7h7v1h-7zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM4 24h7v1h-7zM4 25h7v1h-7zM17 6h9v1h-9zM17 7h11v1h-11zM17 8h3v1h-3zM25 8h4v1h-4zM17 9h3v1h-3zM26 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM27 15h3v1h-3zM17 16h3v1h-3zM27 16h3v1h-3zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM26 22h3v1h-3zM17 23h3v1h-3zM25 23h4v1h-4zM17 24h11v1h-11zM17 25h9v1h-9zM33 6h9v1h-9zM33 7h11v1h-11zM33 8h3v1h-3zM41 8h4v1h-4zM33 9h3v1h-3zM42 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM43 11h3v1h-3zM33 12h3v1h-3zM43 12h3v1h-3zM33 13h3v1h-3zM43 13h3v1h-3zM33 14h3v1h-3zM43 14h3v1h-3zM33 15h3v1h-3zM43 15h3v1h-3zM33 16h3v1h-3zM43 16h3v1h-3zM33 17h3v1h-3zM43 17h3v1h-3zM33 18h3v1h-3zM43 18h3v1h-3zM33 19h3v1h-3zM43 19h3v1h-3zM33 20h3v1h-3zM43 20h3v1h-3zM33 21h3v1h-3zM43 21h3v1h-3zM33 22h3v1h-3zM42 22h3v1h-3zM33 23h3v1h-3zM41 23h4v1h-4zM33 24h11v1h-11zM33 25h9v1h-9zM51 6h9v1h-9zM50 7h11v1h-11zM49 8h4v1h-4zM58 8h4v1h-4zM49 9h3v1h-3zM59 9h3v1h-3zM49 10h3v1h-3zM59 10h3v1h-3zM49 11h3v1h-3zM59 11h3v1h-3zM49 12h3v1h-3zM59 12h3v1h-3zM49 13h3v1h-3zM59 13h3v1h-3zM49 14h3v1h-3zM59 14h3v1h-3zM49 15h3v1h-3zM59 15h3v1h-3zM49 16h3v1h-3zM59 16h3v1h-3zM49 17h3v1h-3zM59 17h3v1h-3zM49 18h3v1h-3zM59 18h3v1h-3zM49 19h3v1h-3zM59 19h3v1h-3zM49 20h3v1h-3zM59 20h3v1h-3zM49 21h3v1h-3zM59 21h3v1h-3zM49 22h3v1h-3zM54 22h3v1h-3zM59 22h3v1h-3zM49 23h4v1h-4zM55 23h7v1h-7zM50 24h11v1h-11zM51 25h9v1h-9zM58 26h3v1h-3zM59 27h3v1h-3zM65 6h9v1h-9zM65 7h11v1h-11zM65 8h3v1h-3zM73 8h4v1h-4zM65 9h3v1h-3zM74 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM75 15h3v1h-3zM65 16h3v1h-3zM75 16h3v1h-3zM65 17h3v1h-3zM75 17h3v1h-3zM65 18h3v1h-3zM75 18h3v1h-3zM65 19h3v1h-3zM75 19h3v1h-3zM65 20h3v1h-3zM75 20h3v1h-3zM65 21h3v1h-3zM75 21h3v1h-3zM65 22h3v1h-3zM74 22h3v1h-3zM65 23h3v1h-3zM73 23h4v1h-4zM65 24h11v1h-11zM65 25h9v1h-9z"/></svg></h2>
-      <p style="margin-top:22px">Type <kbd>i</kbd><kbd>d</kbd><kbd>d</kbd><kbd>q</kbd><kbd>d</kbd> on any page and it runs Doom, with the WAD on your stick: your own, or Freedoom's. The F keys go back to the synthesizer, and Doom waits. Its music is played by BARE!'s own voices.</p>
+    <div class="card">
+      <svg class="px small" viewBox="0 6 80 22" role="img" aria-label="IDDQD" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M4 6h7v1h-7zM4 7h7v1h-7zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM4 24h7v1h-7zM4 25h7v1h-7zM17 6h9v1h-9zM17 7h11v1h-11zM17 8h3v1h-3zM25 8h4v1h-4zM17 9h3v1h-3zM26 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM27 15h3v1h-3zM17 16h3v1h-3zM27 16h3v1h-3zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM26 22h3v1h-3zM17 23h3v1h-3zM25 23h4v1h-4zM17 24h11v1h-11zM17 25h9v1h-9zM33 6h9v1h-9zM33 7h11v1h-11zM33 8h3v1h-3zM41 8h4v1h-4zM33 9h3v1h-3zM42 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM43 11h3v1h-3zM33 12h3v1h-3zM43 12h3v1h-3zM33 13h3v1h-3zM43 13h3v1h-3zM33 14h3v1h-3zM43 14h3v1h-3zM33 15h3v1h-3zM43 15h3v1h-3zM33 16h3v1h-3zM43 16h3v1h-3zM33 17h3v1h-3zM43 17h3v1h-3zM33 18h3v1h-3zM43 18h3v1h-3zM33 19h3v1h-3zM43 19h3v1h-3zM33 20h3v1h-3zM43 20h3v1h-3zM33 21h3v1h-3zM43 21h3v1h-3zM33 22h3v1h-3zM42 22h3v1h-3zM33 23h3v1h-3zM41 23h4v1h-4zM33 24h11v1h-11zM33 25h9v1h-9zM51 6h9v1h-9zM50 7h11v1h-11zM49 8h4v1h-4zM58 8h4v1h-4zM49 9h3v1h-3zM59 9h3v1h-3zM49 10h3v1h-3zM59 10h3v1h-3zM49 11h3v1h-3zM59 11h3v1h-3zM49 12h3v1h-3zM59 12h3v1h-3zM49 13h3v1h-3zM59 13h3v1h-3zM49 14h3v1h-3zM59 14h3v1h-3zM49 15h3v1h-3zM59 15h3v1h-3zM49 16h3v1h-3zM59 16h3v1h-3zM49 17h3v1h-3zM59 17h3v1h-3zM49 18h3v1h-3zM59 18h3v1h-3zM49 19h3v1h-3zM59 19h3v1h-3zM49 20h3v1h-3zM59 20h3v1h-3zM49 21h3v1h-3zM59 21h3v1h-3zM49 22h3v1h-3zM54 22h3v1h-3zM59 22h3v1h-3zM49 23h4v1h-4zM55 23h7v1h-7zM50 24h11v1h-11zM51 25h9v1h-9zM58 26h3v1h-3zM59 27h3v1h-3zM65 6h9v1h-9zM65 7h11v1h-11zM65 8h3v1h-3zM73 8h4v1h-4zM65 9h3v1h-3zM74 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM65 11h3v1h-3zM75 11h3v1h-3zM65 12h3v1h-3zM75 12h3v1h-3zM65 13h3v1h-3zM75 13h3v1h-3zM65 14h3v1h-3zM75 14h3v1h-3zM65 15h3v1h-3zM75 15h3v1h-3zM65 16h3v1h-3zM75 16h3v1h-3zM65 17h3v1h-3zM75 17h3v1h-3zM65 18h3v1h-3zM75 18h3v1h-3zM65 19h3v1h-3zM75 19h3v1h-3zM65 20h3v1h-3zM75 20h3v1h-3zM65 21h3v1h-3zM75 21h3v1h-3zM65 22h3v1h-3zM74 22h3v1h-3zM65 23h3v1h-3zM73 23h4v1h-4zM65 24h11v1h-11zM65 25h9v1h-9z"/></svg>
+      <p>Type <kbd>i</kbd><kbd>d</kbd><kbd>d</kbd><kbd>q</kbd><kbd>d</kbd> on any page and it runs Doom, with the WAD on your stick: your own, or Freedoom's. The F keys go back to the synthesizer, and Doom waits. Its music is played by BARE!'s own voices.</p>
+      <img src="img/doom.png" alt="Doom (Freedoom) running in BARE!" loading="lazy">
     </div>
-  </div>
-</div></section>
-
-<section id="video"><div class="wrap">
-  <h2><svg class="px" viewBox="0 6 144 20" role="img" aria-label="THE VIDEO" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h13v1h-13zM17 16h13v1h-13zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h13v1h-13zM33 7h13v1h-13zM33 8h3v1h-3zM33 9h3v1h-3zM33 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h10v1h-10zM33 16h10v1h-10zM33 17h3v1h-3zM33 18h3v1h-3zM33 19h3v1h-3zM33 20h3v1h-3zM33 21h3v1h-3zM33 22h3v1h-3zM33 23h3v1h-3zM33 24h13v1h-13zM33 25h13v1h-13zM65 6h3v1h-3zM75 6h3v1h-3zM65 7h3v1h-3zM75 7h3v1h-3zM65 8h3v1h-3zM75 8h3v1h-3zM65 9h3v1h-3zM75 9h3v1h-3zM65 10h3v1h-3zM75 10h3v1h-3zM66 11h3v1h-3zM74 11h3v1h-3zM66 12h3v1h-3zM74 12h3v1h-3zM66 13h3v1h-3zM74 13h3v1h-3zM66 14h3v1h-3zM74 14h3v1h-3zM66 15h3v1h-3zM74 15h3v1h-3zM67 16h3v1h-3zM73 16h3v1h-3zM67 17h3v1h-3zM73 17h3v1h-3zM67 18h3v1h-3zM73 18h3v1h-3zM67 19h3v1h-3zM73 19h3v1h-3zM68 20h3v1h-3zM72 20h3v1h-3zM68 21h3v1h-3zM72 21h3v1h-3zM68 22h3v1h-3zM72 22h3v1h-3zM69 23h5v1h-5zM69 24h5v1h-5zM69 25h5v1h-5zM84 6h7v1h-7zM84 7h7v1h-7zM86 8h3v1h-3zM86 9h3v1h-3zM86 10h3v1h-3zM86 11h3v1h-3zM86 12h3v1h-3zM86 13h3v1h-3zM86 14h3v1h-3zM86 15h3v1h-3zM86 16h3v1h-3zM86 17h3v1h-3zM86 18h3v1h-3zM86 19h3v1h-3zM86 20h3v1h-3zM86 21h3v1h-3zM86 22h3v1h-3zM86 23h3v1h-3zM84 24h7v1h-7zM84 25h7v1h-7zM97 6h9v1h-9zM97 7h11v1h-11zM97 8h3v1h-3zM105 8h4v1h-4zM97 9h3v1h-3zM106 9h3v1h-3zM97 10h3v1h-3zM107 10h3v1h-3zM97 11h3v1h-3zM107 11h3v1h-3zM97 12h3v1h-3zM107 12h3v1h-3zM97 13h3v1h-3zM107 13h3v1h-3zM97 14h3v1h-3zM107 14h3v1h-3zM97 15h3v1h-3zM107 15h3v1h-3zM97 16h3v1h-3zM107 16h3v1h-3zM97 17h3v1h-3zM107 17h3v1h-3zM97 18h3v1h-3zM107 18h3v1h-3zM97 19h3v1h-3zM107 19h3v1h-3zM97 20h3v1h-3zM107 20h3v1h-3zM97 21h3v1h-3zM107 21h3v1h-3zM97 22h3v1h-3zM106 22h3v1h-3zM97 23h3v1h-3zM105 23h4v1h-4zM97 24h11v1h-11zM97 25h9v1h-9zM113 6h13v1h-13zM113 7h13v1h-13zM113 8h3v1h-3zM113 9h3v1h-3zM113 10h3v1h-3zM113 11h3v1h-3zM113 12h3v1h-3zM113 13h3v1h-3zM113 14h3v1h-3zM113 15h10v1h-10zM113 16h10v1h-10zM113 17h3v1h-3zM113 18h3v1h-3zM113 19h3v1h-3zM113 20h3v1h-3zM113 21h3v1h-3zM113 22h3v1h-3zM113 23h3v1h-3zM113 24h13v1h-13zM113 25h13v1h-13zM131 6h9v1h-9zM130 7h11v1h-11zM129 8h4v1h-4zM138 8h4v1h-4zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h3v1h-3zM139 11h3v1h-3zM129 12h3v1h-3zM139 12h3v1h-3zM129 13h3v1h-3zM139 13h3v1h-3zM129 14h3v1h-3zM139 14h3v1h-3zM129 15h3v1h-3zM139 15h3v1h-3zM129 16h3v1h-3zM139 16h3v1h-3zM129 17h3v1h-3zM139 17h3v1h-3zM129 18h3v1h-3zM139 18h3v1h-3zM129 19h3v1h-3zM139 19h3v1h-3zM129 20h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h4v1h-4zM138 23h4v1h-4zM130 24h11v1h-11zM131 25h9v1h-9z"/></svg></h2>
-  <p class="lede">Six and a half minutes of all of it, recorded from the instrument itself, picture and sound together.</p>
-  <div class="screen"><video src="media/bare-showcase.mp4" poster="img/showcase-poster.png" controls preload="none"></video></div>
-  <div class="splash">
-    <figure><img src="img/splash-ans.png" alt="" loading="lazy"><figcaption>SPLASH · ANS</figcaption></figure>
-    <figure><img src="img/splash-gendy.png" alt="" loading="lazy"><figcaption>SPLASH · GENDY</figcaption></figure>
-    <figure><img src="img/splash-cmi.png" alt="" loading="lazy"><figcaption>SPLASH · CMI</figcaption></figure>
-    <figure><img src="img/splash-meta.png" alt="" loading="lazy"><figcaption>SPLASH · METASTASEIS</figcaption></figure>
-  </div>
-</div></section>
-
-<section id="try"><div class="wrap">
-  <h2><svg class="px" viewBox="0 6 96 20" role="img" aria-label="TRY IT" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h11v1h-11zM17 7h12v1h-12zM17 8h3v1h-3zM26 8h4v1h-4zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM26 15h4v1h-4zM17 16h12v1h-12zM17 17h11v1h-11zM17 18h6v1h-6zM17 19h3v1h-3zM21 19h3v1h-3zM17 20h3v1h-3zM22 20h3v1h-3zM17 21h3v1h-3zM23 21h3v1h-3zM17 22h3v1h-3zM24 22h3v1h-3zM17 23h3v1h-3zM25 23h3v1h-3zM17 24h3v1h-3zM26 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h3v1h-3zM43 6h3v1h-3zM33 7h3v1h-3zM43 7h3v1h-3zM33 8h3v1h-3zM43 8h3v1h-3zM34 9h3v1h-3zM42 9h3v1h-3zM34 10h3v1h-3zM42 10h3v1h-3zM35 11h3v1h-3zM41 11h3v1h-3zM35 12h3v1h-3zM41 12h3v1h-3zM36 13h3v1h-3zM40 13h3v1h-3zM36 14h3v1h-3zM40 14h3v1h-3zM37 15h5v1h-5zM37 16h5v1h-5zM38 17h3v1h-3zM38 18h3v1h-3zM38 19h3v1h-3zM38 20h3v1h-3zM38 21h3v1h-3zM38 22h3v1h-3zM38 23h3v1h-3zM38 24h3v1h-3zM38 25h3v1h-3zM68 6h7v1h-7zM68 7h7v1h-7zM70 8h3v1h-3zM70 9h3v1h-3zM70 10h3v1h-3zM70 11h3v1h-3zM70 12h3v1h-3zM70 13h3v1h-3zM70 14h3v1h-3zM70 15h3v1h-3zM70 16h3v1h-3zM70 17h3v1h-3zM70 18h3v1h-3zM70 19h3v1h-3zM70 20h3v1h-3zM70 21h3v1h-3zM70 22h3v1h-3zM70 23h3v1h-3zM68 24h7v1h-7zM68 25h7v1h-7zM81 6h13v1h-13zM81 7h13v1h-13zM86 8h3v1h-3zM86 9h3v1h-3zM86 10h3v1h-3zM86 11h3v1h-3zM86 12h3v1h-3zM86 13h3v1h-3zM86 14h3v1h-3zM86 15h3v1h-3zM86 16h3v1h-3zM86 17h3v1h-3zM86 18h3v1h-3zM86 19h3v1h-3zM86 20h3v1h-3zM86 21h3v1h-3zM86 22h3v1h-3zM86 23h3v1h-3zM86 24h3v1h-3zM86 25h3v1h-3z"/></svg></h2>
-  <p class="lede">2.5 is a beta. It needs a PC with a Pentium Pro or later.</p>
-  <ol class="steps"><li><div>Download <code>bare-2.5.img.xz</code> from the <a href="https://github.com/willbearfruits/bare/releases/tag/v2.5">2.5 release</a>.</div></li><li><div>Write it to a USB stick of 256 MB or more with balenaEtcher or Raspberry Pi Imager, or on Linux with <code>xz -dc bare-2.5.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync</code>. Everything on the stick is replaced.</div></li><li><div>Turn Secure Boot off, plug the stick in and start the computer from it: the boot menu is usually <kbd>F12</kbd>, <kbd>F9</kbd>, <kbd>F8</kbd> or <kbd>Esc</kbd> at power-on.</div></li><li><div>When the splash plays, press any key. Hold <kbd>4</kbd> and run a finger along the keys from <kbd>A</kbd> to <kbd>'</kbd>: a C major chord, strummed.</div></li></ol>
-  <div class="facts">
-    <div><b>PLAYED ON</b>A ThinkPad X250 and an ASUS VivoBook (Intel 12th gen), BIOS and UEFI. It boots on 89 emulated PCs, from a Pentium II with 32 MB to 4K screens.</div>
-    <div><b>NOT TRIED YET</b>On real hardware: AC'97, the Sound Blaster 16, SATA and NVMe disks, the installer and Ethernet.</div>
-    <div><b>CAREFUL</b>The installer on the FILE page erases the disk you choose. Everything else leaves the computer as it was.</div>
   </div>
 </div></section>
 
 <section id="manual"><div class="wrap">
   <h2><svg class="px" viewBox="0 6 160 20" role="img" aria-label="THE MANUAL" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h13v1h-13zM1 7h13v1h-13zM6 8h3v1h-3zM6 9h3v1h-3zM6 10h3v1h-3zM6 11h3v1h-3zM6 12h3v1h-3zM6 13h3v1h-3zM6 14h3v1h-3zM6 15h3v1h-3zM6 16h3v1h-3zM6 17h3v1h-3zM6 18h3v1h-3zM6 19h3v1h-3zM6 20h3v1h-3zM6 21h3v1h-3zM6 22h3v1h-3zM6 23h3v1h-3zM6 24h3v1h-3zM6 25h3v1h-3zM17 6h3v1h-3zM27 6h3v1h-3zM17 7h3v1h-3zM27 7h3v1h-3zM17 8h3v1h-3zM27 8h3v1h-3zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h13v1h-13zM17 16h13v1h-13zM17 17h3v1h-3zM27 17h3v1h-3zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h13v1h-13zM33 7h13v1h-13zM33 8h3v1h-3zM33 9h3v1h-3zM33 10h3v1h-3zM33 11h3v1h-3zM33 12h3v1h-3zM33 13h3v1h-3zM33 14h3v1h-3zM33 15h10v1h-10zM33 16h10v1h-10zM33 17h3v1h-3zM33 18h3v1h-3zM33 19h3v1h-3zM33 20h3v1h-3zM33 21h3v1h-3zM33 22h3v1h-3zM33 23h3v1h-3zM33 24h13v1h-13zM33 25h13v1h-13zM65 6h3v1h-3zM76 6h3v1h-3zM65 7h3v1h-3zM76 7h3v1h-3zM65 8h4v1h-4zM75 8h4v1h-4zM65 9h5v1h-5zM74 9h5v1h-5zM65 10h6v1h-6zM73 10h6v1h-6zM65 11h6v1h-6zM73 11h6v1h-6zM65 12h3v1h-3zM69 12h6v1h-6zM76 12h3v1h-3zM65 13h3v1h-3zM70 13h4v1h-4zM76 13h3v1h-3zM65 14h3v1h-3zM70 14h4v1h-4zM76 14h3v1h-3zM65 15h3v1h-3zM71 15h2v1h-2zM76 15h3v1h-3zM65 16h3v1h-3zM76 16h3v1h-3zM65 17h3v1h-3zM76 17h3v1h-3zM65 18h3v1h-3zM76 18h3v1h-3zM65 19h3v1h-3zM76 19h3v1h-3zM65 20h3v1h-3zM76 20h3v1h-3zM65 21h3v1h-3zM76 21h3v1h-3zM65 22h3v1h-3zM76 22h3v1h-3zM65 23h3v1h-3zM76 23h3v1h-3zM65 24h3v1h-3zM76 24h3v1h-3zM65 25h3v1h-3zM76 25h3v1h-3zM83 6h9v1h-9zM82 7h11v1h-11zM81 8h4v1h-4zM90 8h4v1h-4zM81 9h3v1h-3zM91 9h3v1h-3zM81 10h3v1h-3zM91 10h3v1h-3zM81 11h3v1h-3zM91 11h3v1h-3zM81 12h3v1h-3zM91 12h3v1h-3zM81 13h3v1h-3zM91 13h3v1h-3zM81 14h3v1h-3zM91 14h3v1h-3zM81 15h3v1h-3zM91 15h3v1h-3zM81 16h13v1h-13zM81 17h13v1h-13zM81 18h3v1h-3zM91 18h3v1h-3zM81 19h3v1h-3zM91 19h3v1h-3zM81 20h3v1h-3zM91 20h3v1h-3zM81 21h3v1h-3zM91 21h3v1h-3zM81 22h3v1h-3zM91 22h3v1h-3zM81 23h3v1h-3zM91 23h3v1h-3zM81 24h3v1h-3zM91 24h3v1h-3zM81 25h3v1h-3zM91 25h3v1h-3zM97 6h3v1h-3zM107 6h3v1h-3zM97 7h3v1h-3zM107 7h3v1h-3zM97 8h3v1h-3zM107 8h3v1h-3zM97 9h3v1h-3zM107 9h3v1h-3zM97 10h3v1h-3zM107 10h3v1h-3zM97 11h4v1h-4zM107 11h3v1h-3zM97 12h5v1h-5zM107 12h3v1h-3zM97 13h6v1h-6zM107 13h3v1h-3zM97 14h3v1h-3zM101 14h3v1h-3zM107 14h3v1h-3zM97 15h3v1h-3zM102 15h3v1h-3zM107 15h3v1h-3zM97 16h3v1h-3zM103 16h3v1h-3zM107 16h3v1h-3zM97 17h3v1h-3zM104 17h6v1h-6zM97 18h3v1h-3zM105 18h5v1h-5zM97 19h3v1h-3zM106 19h4v1h-4zM97 20h3v1h-3zM107 20h3v1h-3zM97 21h3v1h-3zM107 21h3v1h-3zM97 22h3v1h-3zM107 22h3v1h-3zM97 23h3v1h-3zM107 23h3v1h-3zM97 24h3v1h-3zM107 24h3v1h-3zM97 25h3v1h-3zM107 25h3v1h-3zM113 6h3v1h-3zM123 6h3v1h-3zM113 7h3v1h-3zM123 7h3v1h-3zM113 8h3v1h-3zM123 8h3v1h-3zM113 9h3v1h-3zM123 9h3v1h-3zM113 10h3v1h-3zM123 10h3v1h-3zM113 11h3v1h-3zM123 11h3v1h-3zM113 12h3v1h-3zM123 12h3v1h-3zM113 13h3v1h-3zM123 13h3v1h-3zM113 14h3v1h-3zM123 14h3v1h-3zM113 15h3v1h-3zM123 15h3v1h-3zM113 16h3v1h-3zM123 16h3v1h-3zM113 17h3v1h-3zM123 17h3v1h-3zM113 18h3v1h-3zM123 18h3v1h-3zM113 19h3v1h-3zM123 19h3v1h-3zM113 20h3v1h-3zM123 20h3v1h-3zM113 21h3v1h-3zM123 21h3v1h-3zM113 22h3v1h-3zM123 22h3v1h-3zM113 23h4v1h-4zM122 23h4v1h-4zM114 24h11v1h-11zM115 25h9v1h-9zM131 6h9v1h-9zM130 7h11v1h-11zM129 8h4v1h-4zM138 8h4v1h-4zM129 9h3v1h-3zM139 9h3v1h-3zM129 10h3v1h-3zM139 10h3v1h-3zM129 11h3v1h-3zM139 11h3v1h-3zM129 12h3v1h-3zM139 12h3v1h-3zM129 13h3v1h-3zM139 13h3v1h-3zM129 14h3v1h-3zM139 14h3v1h-3zM129 15h3v1h-3zM139 15h3v1h-3zM129 16h13v1h-13zM129 17h13v1h-13zM129 18h3v1h-3zM139 18h3v1h-3zM129 19h3v1h-3zM139 19h3v1h-3zM129 20h3v1h-3zM139 20h3v1h-3zM129 21h3v1h-3zM139 21h3v1h-3zM129 22h3v1h-3zM139 22h3v1h-3zM129 23h3v1h-3zM139 23h3v1h-3zM129 24h3v1h-3zM139 24h3v1h-3zM129 25h3v1h-3zM139 25h3v1h-3zM145 6h3v1h-3zM145 7h3v1h-3zM145 8h3v1h-3zM145 9h3v1h-3zM145 10h3v1h-3zM145 11h3v1h-3zM145 12h3v1h-3zM145 13h3v1h-3zM145 14h3v1h-3zM145 15h3v1h-3zM145 16h3v1h-3zM145 17h3v1h-3zM145 18h3v1h-3zM145 19h3v1h-3zM145 20h3v1h-3zM145 21h3v1h-3zM145 22h3v1h-3zM145 23h3v1h-3zM145 24h13v1h-13zM145 25h13v1h-13z"/></svg></h2>
-  <div class="manual">
-    <a href="bare-manual-2.5.pdf"><img src="img/manual-cover.png" alt="the manual's cover"></a>
-    <a href="bare-manual-2.5.pdf"><img src="img/manual-keys.png" alt="the manual's keys page"></a>
+  <div class="manual" style="margin-top:30px">
+    <a href="bare-manual-1.0-beta.pdf"><img src="img/manual-cover.png" alt="the manual's cover" loading="lazy"></a>
+    <a href="bare-manual-1.0-beta.pdf"><img src="img/manual-keys.png" alt="the manual's page about the keys" loading="lazy"></a>
     <div>
-      <p>Thirty A4 pages: every page of the instrument with its keys, the instrument files, which machines, and the stick. Made to be printed.</p>
-      <p><a class="btn" href="bare-manual-2.5.pdf">bare-manual-2.5.pdf</a></p>
+      <p>38 A4 pages: every page of the instrument with its keys, the instrument files, which machines, and the stick. Made to be printed.</p>
+      <div class="btns"><a class="btn" href="bare-manual-1.0-beta.pdf">bare-manual-1.0-beta.pdf</a><a class="btn" href="https://github.com/willbearfruits/bare/blob/main/MANUAL.md">read it on GitHub</a></div>
     </div>
   </div>
 </div></section>
@@ -241,9 +411,61 @@ footer svg.px { height: 30px; color: var(--dim); }
 <footer><div class="wrap">
   <svg class="px" viewBox="0 6 80 20" role="img" aria-label="BARE!" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h11v1h-11zM1 7h12v1h-12zM1 8h3v1h-3zM10 8h4v1h-4zM1 9h3v1h-3zM11 9h3v1h-3zM1 10h3v1h-3zM11 10h3v1h-3zM1 11h3v1h-3zM11 11h3v1h-3zM1 12h3v1h-3zM11 12h3v1h-3zM1 13h3v1h-3zM10 13h3v1h-3zM1 14h11v1h-11zM1 15h11v1h-11zM1 16h3v1h-3zM10 16h3v1h-3zM1 17h3v1h-3zM11 17h3v1h-3zM1 18h3v1h-3zM11 18h3v1h-3zM1 19h3v1h-3zM11 19h3v1h-3zM1 20h3v1h-3zM11 20h3v1h-3zM1 21h3v1h-3zM11 21h3v1h-3zM1 22h3v1h-3zM11 22h3v1h-3zM1 23h3v1h-3zM10 23h4v1h-4zM1 24h12v1h-12zM1 25h11v1h-11zM19 6h9v1h-9zM18 7h11v1h-11zM17 8h4v1h-4zM26 8h4v1h-4zM17 9h3v1h-3zM27 9h3v1h-3zM17 10h3v1h-3zM27 10h3v1h-3zM17 11h3v1h-3zM27 11h3v1h-3zM17 12h3v1h-3zM27 12h3v1h-3zM17 13h3v1h-3zM27 13h3v1h-3zM17 14h3v1h-3zM27 14h3v1h-3zM17 15h3v1h-3zM27 15h3v1h-3zM17 16h13v1h-13zM17 17h13v1h-13zM17 18h3v1h-3zM27 18h3v1h-3zM17 19h3v1h-3zM27 19h3v1h-3zM17 20h3v1h-3zM27 20h3v1h-3zM17 21h3v1h-3zM27 21h3v1h-3zM17 22h3v1h-3zM27 22h3v1h-3zM17 23h3v1h-3zM27 23h3v1h-3zM17 24h3v1h-3zM27 24h3v1h-3zM17 25h3v1h-3zM27 25h3v1h-3zM33 6h11v1h-11zM33 7h12v1h-12zM33 8h3v1h-3zM42 8h4v1h-4zM33 9h3v1h-3zM43 9h3v1h-3zM33 10h3v1h-3zM43 10h3v1h-3zM33 11h3v1h-3zM43 11h3v1h-3zM33 12h3v1h-3zM43 12h3v1h-3zM33 13h3v1h-3zM43 13h3v1h-3zM33 14h3v1h-3zM43 14h3v1h-3zM33 15h3v1h-3zM42 15h4v1h-4zM33 16h12v1h-12zM33 17h11v1h-11zM33 18h6v1h-6zM33 19h3v1h-3zM37 19h3v1h-3zM33 20h3v1h-3zM38 20h3v1h-3zM33 21h3v1h-3zM39 21h3v1h-3zM33 22h3v1h-3zM40 22h3v1h-3zM33 23h3v1h-3zM41 23h3v1h-3zM33 24h3v1h-3zM42 24h3v1h-3zM33 25h3v1h-3zM43 25h3v1h-3zM49 6h13v1h-13zM49 7h13v1h-13zM49 8h3v1h-3zM49 9h3v1h-3zM49 10h3v1h-3zM49 11h3v1h-3zM49 12h3v1h-3zM49 13h3v1h-3zM49 14h3v1h-3zM49 15h10v1h-10zM49 16h10v1h-10zM49 17h3v1h-3zM49 18h3v1h-3zM49 19h3v1h-3zM49 20h3v1h-3zM49 21h3v1h-3zM49 22h3v1h-3zM49 23h3v1h-3zM49 24h13v1h-13zM49 25h13v1h-13zM70 6h3v1h-3zM70 7h3v1h-3zM70 8h3v1h-3zM70 9h3v1h-3zM70 10h3v1h-3zM70 11h3v1h-3zM70 12h3v1h-3zM70 13h3v1h-3zM70 14h3v1h-3zM70 15h3v1h-3zM70 16h3v1h-3zM70 17h3v1h-3zM70 18h3v1h-3zM70 22h3v1h-3zM70 23h3v1h-3zM70 24h3v1h-3zM70 25h3v1h-3z"/></svg>
   <div>
-    <p>BARE! 2.5 beta is free software, GPL-3.0-or-later, by willbearfruits. <a href="https://github.com/willbearfruits/bare">Source</a> · <a href="https://github.com/willbearfruits/bare/releases/tag/v2.5">download</a> · <a href="bare-manual-2.5.pdf">manual</a></p>
+    <p>BARE! 1.0 beta is free software, GPL-3.0-or-later, by willbearfruits. <a href="https://github.com/willbearfruits/bare">Source</a> · <a href="https://github.com/willbearfruits/bare/releases/tag/v1.0-beta">release</a> · <a href="bare-manual-1.0-beta.pdf">manual</a> · <a href="https://github.com/willbearfruits/bare/issues">issues</a></p>
     <p>It starts with the Limine bootloader, draws with the Terminus font, and runs Doom with Chocolate Doom's engine (GPL-2.0-or-later); this page is set in IBM Plex. Doom is a trademark of id Software; Freedoom is its own project. None of them is involved.</p>
   </div>
 </div></footer>
+
+<script>
+(() => {
+  // tabs: the pages, the computers; arrow keys move along, as the ARIA pattern has it
+  for (const list of document.querySelectorAll('[role=tablist]')) {
+    const tabs = [...list.querySelectorAll('[role=tab]')];
+    const show = (t, focus) => {
+      for (const u of tabs) {
+        const on = u === t;
+        u.setAttribute('aria-selected', on); u.tabIndex = on ? 0 : -1;
+        document.getElementById(u.getAttribute('aria-controls')).classList.toggle('on', on);
+      }
+      if (focus) { t.focus(); t.scrollIntoView({block: 'nearest', inline: 'nearest'}); }
+    };
+    list.show = show;
+    list.addEventListener('click', ev => { const t = ev.target.closest('[role=tab]'); if (t) show(t); });
+    list.addEventListener('keydown', ev => {
+      const i = tabs.indexOf(document.activeElement); if (i < 0) return;
+      const j = {ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1}[ev.key];
+      if (j === undefined) return;
+      ev.preventDefault(); show(tabs[(j + tabs.length) % tabs.length], true);
+    });
+  }
+  // a page's views: the picture and its caption
+  for (const box of document.querySelectorAll('.views')) {
+    const panel = box.closest('.panel'), img = panel.querySelector('.screen img'), cap = panel.querySelector('.vcap');
+    box.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if (!b) return;
+      for (const u of box.querySelectorAll('button')) u.setAttribute('aria-pressed', u === b);
+      img.src = b.dataset.img; img.alt = b.dataset.alt; cap.textContent = b.dataset.cap;
+    });
+  }
+  // the visitor's computer first
+  const ua = navigator.userAgent, os = /Windows/.test(ua) ? 'win' : /Macintosh|Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua) ? 'mac' : /Linux|X11|CrOS/.test(ua) && !/Android/.test(ua) ? 'linux' : 'win';
+  const osTab = document.getElementById('o-' + os); osTab.closest('[role=tablist]').show(osTab);
+  // copy buttons
+  for (const b of document.querySelectorAll('button.copy')) b.addEventListener('click', async () => {
+    const code = document.getElementById(b.dataset.for);
+    try { await navigator.clipboard.writeText(code.textContent); b.textContent = 'copied'; }
+    catch { getSelection().selectAllChildren(code); b.textContent = 'select'; }
+    setTimeout(() => b.textContent = 'copy', 1600);
+  });
+  // the lit tab in the bar follows the section in view
+  const lit = new Map([...document.querySelectorAll('.bar a.tab[href^="#"]')].map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(es => { for (const x of es) if (x.isIntersecting)
+    for (const [id, a] of lit) a.classList.toggle('lit', id === x.target.id); }, {rootMargin: '-40% 0px -55% 0px'});
+  for (const id of lit.keys()) { const s = document.getElementById(id); if (s) io.observe(s); }
+  // no moving pictures for those who asked for none
+  const v = document.getElementById('loop');
+  if (v && matchMedia('(prefers-reduced-motion: reduce)').matches) { v.removeAttribute('autoplay'); v.pause(); v.controls = true; }
+})();
+</script>
 </body>
 </html>
