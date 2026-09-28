@@ -210,4 +210,4 @@ static void draw(uint64_t now) {
            "0", "all off", "TAB", "everything / the input", "", "the pad plays the one picked; a 2nd finger, the filter");
 }
 
-const struct page page_fx = { "FX", "F10", KEY_F10, false, key, 0, pointer, 0, draw, true, midi };
+const struct page page_fx = { "FX", false, key, 0, pointer, 0, draw, true, midi };

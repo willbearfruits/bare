@@ -35,10 +35,20 @@
 #include "gendy.h"
 #include "sieve.h"
 #include "xen.h"
+#include "lineage.h"
+#include "lessons.h"
+#include "harmony.h"
+#include "meta.h"
+#include "carlos.h"
+#include "junk.h"
+#include "drone.h"
+#include "phase.h"
+#include "doomtrack.h"
 #include "cloud.h"
 #include "upic.h"
 #include "inst.h"
 #include "doomhost.h"
+#include "fkeys.h"
 #include "gfx.h"
 #include <unistd.h>
 #include <fcntl.h>
@@ -80,15 +90,15 @@ static void audio_checks(void) {
     printf("audio\n");
     to_play(); run(50);
     /* the loudest thing the PLAY page does: a held chord with strums both rows, echo on */
-    host_key('4', true); run(100);
+    host_key('6', true); run(100);                                      /* C major, and strums on both voices, main and sub */
     double peak = 0, dc = 0; long clips = 0;
-    for (int rep = 0; rep < 3; rep++)
-        for (const char *s = "asdfghjklzxcvbnm"; *s; s++) {
+    for (int rep = 0; rep < 5; rep++)
+        for (const char *s = "zxcvbnm,./"; *s; s++) {
             host_tap((uint8_t)*s);
             struct level m = measure(60);
             if (m.peak > peak) peak = m.peak; dc += m.dc / 48; clips += m.clips;
         }
-    host_key('4', false); run(500);
+    host_key('6', false); run(500);
     CHECK(clips == 0, "chord + strums: no clipped samples (%ld)", clips);
     CHECK(fabs(dc) < 200, "chord + strums: DC offset %.0f (was ~ -5700)", dc);
     /* every preset alone */
@@ -228,6 +238,24 @@ static double measure_freq(int ms) {
     return crossings && last > first ? crossings * 48000.0 / (double)(last - first) : 0;
 }
 
+/* the pitch of what plays, by autocorrelation (a tone with harmonics can cross zero more than once a cycle) */
+static double pitch_of(int ms) {
+    static int16_t buf[48000];
+    int n = 0;
+    for (int i = 0; i < ms && n + 48 <= 48000; i++) { host_now_ms++; host_audio_ms(); app_step(host_now_ms); for (int k = 0; k < host_last_frames && n < 48000; k++) buf[n++] = host_last_audio[2 * k]; }
+    static double c[1200]; double top = 0;
+    for (int lag = 24; lag < 1200; lag++) {                              /* 40 Hz .. 2 kHz */
+        c[lag] = 0; for (int i = 0; i + lag < n && i < 8192; i++) c[lag] += (double)buf[i] * buf[i + lag];
+        if (c[lag] > top) top = c[lag];
+    }
+    for (int lag = 25; lag < 1199; lag++)                               /* the first peak nearly as high as the highest: a period */
+        if (c[lag] >= 0.95 * top && c[lag] >= c[lag - 1] && c[lag] >= c[lag + 1]) {
+            double a = c[lag - 1], b = c[lag], d = c[lag + 1], off = (a - d) / (2 * (a - 2 * b + d));   /* between samples */
+            return 48000.0 / (lag + (fabs(off) < 1 ? off : 0));
+        }
+    return 0;
+}
+
 static int32_t sample_peak(const struct sample *s) {
     int32_t p = 0;
     for (uint32_t i = 0; i < s->len; i++) { int32_t a = abs(sampler_frame(s, i)); if (a > p) p = a; }
@@ -319,20 +347,21 @@ static void sampler_checks(void) {
 }
 
 /* level and pitch over ms, rendered the way the 1 kHz tick does, so the line input keeps flowing */
-struct heard { double rms, rms_r, hz; };
+struct heard { double rms, rms_r, hz; int peak; };
 static struct heard listen(int ms) {
-    double sq = 0, sq_r = 0, sum_l = 0, sum_r = 0; long n = 0, first = -1, last = 0, crossings = 0; int16_t prev = 0;
+    double sq = 0, sq_r = 0, sum_l = 0, sum_r = 0; long n = 0, first = -1, last = 0, crossings = 0; int16_t prev = 0; int peak = 0;
     for (int i = 0; i < ms; i++) {
         host_now_ms++; host_audio_ms(); app_step(host_now_ms);
         for (int k = 0; k < host_last_frames; k++, n++) {
             int16_t l = host_last_audio[2 * k], r = host_last_audio[2 * k + 1];
             sq += (double)l * l; sq_r += (double)r * r; sum_l += l; sum_r += r;
+            peak = MAX(peak, MAX(abs(l), abs(r)));
             if (prev < 0 && l >= 0) { if (first < 0) first = n; else { last = n; crossings++; } }
             prev = l;
         }
     }
     double ml = sum_l / n, mr = sum_r / n;                               /* what is heard: without the DC */
-    return (struct heard){ sqrt(fmax(0, sq / n - ml * ml)), sqrt(fmax(0, sq_r / n - mr * mr)), crossings && last > first ? crossings * 48000.0 / (double)(last - first) : 0 };
+    return (struct heard){ sqrt(fmax(0, sq / n - ml * ml)), sqrt(fmax(0, sq_r / n - mr * mr)), crossings && last > first ? crossings * 48000.0 / (double)(last - first) : 0, peak };
 }
 
 /* the mixer on F8, and the line input */
@@ -1014,7 +1043,7 @@ static void stick_checks(const char *image) {
     CHECK(disk_load_slot(4), "loaded back");
     uint32_t tsum2 = 2166136261u; for (uint32_t i = 0; i < tape.tr[2].used; i += 3) tsum2 = (tsum2 ^ (uint32_t)tape_sample(2, i)) * 16777619u;
     CHECK(tape.tr[2].used == tused && tsum2 == tsum && tape_peak(2, 0, tused) > 0, "the tape came back, frame for frame (%u frames)", tape.tr[2].used);
-    disk_delete_slot(4); tape_clear_all(); for (int i = 0; i < 4; i++) host_tap(KEY_TAB); to_play();   /* round the views to PROJECTS */
+    disk_delete_slot(4); tape_clear_all(); for (int i = 0; i < 5; i++) host_tap(KEY_TAB); to_play();   /* round the views to PROJECTS */
     run(5000);                                                         /* the export's echoes die away */
 }
 
@@ -1232,7 +1261,7 @@ static void install_checks(void) {
     char desc[40]; install_describe(d, desc, sizeof desc);
     CHECK(made && d == 1 && !strcmp(desc, "GPT, 2 partitions"), "a second drive: %s", desc);
     CHECK(disk_save_slot(1, "INSTALLED"), "a project on the stick to take along");
-    host_tap(KEY_F7); for (int i = 0; i < 4; i++) host_tap(KEY_TAB); run(100);             /* FILE, its INSTALL view */
+    host_tap(KEY_F7); for (int i = 0; i < 5; i++) host_tap(KEY_TAB); run(100);             /* FILE, its INSTALL view */
     host_tap('i'); type_word("wrong"); host_tap(KEY_ENTER); run(100);
     bool refused = !inst.running && !inst.done;
     host_tap('i'); type_word("erase"); host_tap(KEY_ENTER); run(20);
@@ -1310,20 +1339,477 @@ static void update_checks(void) {
     if (fat_find(&disk.fat, "BARE.UPD", &uf)) fat_create(&disk.fat, "", "BARE.UPD", 0, &uf);
 }
 
-/* the rhythm section: R starts it; every hit lands on the pattern's grid, to the sample */
+/* the omnichord after the Suzuki OM-108: its buttons together, the 13 strings as its manual draws them, keyboard mode,
+   INSTANT OFF, HOLD, SYNC and AUTO, a pattern waiting for the bar, MIDI out on its channels, old projects */
+static int midi_count(int status, int from, int to, int pc) {         /* note-ons with this status in [from, to) (pitch class, -1 any) */
+    int n = 0;
+    for (int i = from; i + 2 < to; i++)
+        if (host_midi_out[i] == status && host_midi_out[i + 2] && (pc < 0 || host_midi_out[i + 1] % 12 == pc)) { n++; i += 2; }
+    return n;
+}
+static void omni_checks(void) {
+    printf("omnichord\n");
+    omni.autoplay = true;                                               /* the rhythm plays the chord: what sounds here is the strings */
+    to_play(); host_tap(KEY_ESC); run(300);
+    HOST_SET_ECHO(false);
+    /* the 108 chords: every root with every suffix, from its buttons, whichever was pressed last */
+    static const uint8_t want[OMNI_SUFFIXES][3] = { { 0, 4, 7 }, { 0, 3, 7 }, { 0, 4, 10 }, { 0, 4, 11 }, { 0, 3, 10 }, { 0, 4, 8 }, { 0, 3, 9 }, { 0, 5, 7 }, { 0, 2, 4 } };
+    int good = 0;
+    for (int r = 0; r < OMNI_ROOTS; r++) for (int sfx = 0; sfx < OMNI_SUFFIXES; sfx++) {
+        int l = (r + OMNI_ROOTS - 1) % OMNI_ROOTS; bool both = true;
+        for (int last = 0; last < 2; last++) {
+            uint16_t h[3] = { 0, 0, 0 }; int nrow = 0, nroot = r;
+            switch (sfx) {
+            case SUF_MAJ:  h[0] = 1 << r; break;
+            case SUF_MIN:  h[1] = 1 << r; nrow = 1; break;
+            case SUF_7:    h[2] = 1 << r; nrow = 2; break;
+            case SUF_MAJ7: h[0] = h[2] = 1 << r; nrow = last ? 2 : 0; break;
+            case SUF_MIN7: h[1] = h[2] = 1 << r; nrow = last ? 2 : 1; break;
+            case SUF_AUG:  h[0] = h[1] = h[2] = 1 << r; nrow = last ? 1 : 0; break;
+            case SUF_DIM:  h[0] = h[1] = 1 << r; nrow = last ? 1 : 0; break;
+            case SUF_SUS4: h[0] = 1 << r; h[2] = 1 << l; if (last) { nrow = 2; nroot = l; } break;
+            case SUF_ADD9: h[0] = 1 << r; h[1] = 1 << l; if (last) { nrow = 1; nroot = l; } break;
+            }
+            int got_s = -1, got = omni_recognize(h, nrow, nroot, &got_s);
+            uint8_t pcs[3]; omni_chord_tones((uint32_t)got | (uint32_t)got_s << 4 | 1u << 8 | 6u << 9, pcs);
+            bool ok = got == r && got_s == sfx;
+            for (int i = 0; i < 3 && ok; i++) ok = pcs[i] == (omni_root_pc[r] + want[sfx][i]) % 12;
+            both = both && ok;
+        }
+        good += both;
+    }
+    CHECK(good == 108, "the 108 chords: each root with each suffix from its buttons, pressed in either order (%d of 108), three notes each", good);
+    /* the keys: C is 6 (MAJOR), Y (MINOR), H (7th); F left of it is 5, T, G */
+    host_key('6', true); host_key('h', true); run(30); bool maj7 = omni.root == 5 && omni.suffix == SUF_MAJ7; host_key('h', false); host_key('6', false); run(80);
+    host_key('6', true); host_key('g', true); run(30); bool sus4 = omni.root == 5 && omni.suffix == SUF_SUS4; host_key('g', false); host_key('6', false); run(80);
+    host_key('t', true); host_key('6', true); run(30); bool add9 = omni.root == 5 && omni.suffix == SUF_ADD9; host_key('6', false); host_key('t', false); run(80);
+    CHECK(maj7 && sus4 && add9 && !omni.chord_on, "keys together: 6+H Cmaj7, 6+G Csus4 (the 7th to its left), T+6 Cadd9 (the MINOR to its left); let go, the chord ends");
+    /* the strings, as the manual draws them: in each octave from F# to F the chord's notes in chord order, the root on top */
+    static const int c_plate[13] = { 60, 64, 55, 72, 76, 67, 84, 88, 79, 96, 100, 91, 108 }, g_plate[13] = { 55, 59, 62, 67, 71, 74, 79, 83, 86, 91, 95, 98, 103 };
+    bool cp = true, gp = true;
+    host_key('6', true); run(20); for (int z = 0; z < 13; z++) cp = cp && omni_zone_note(z) == c_plate[z]; host_key('6', false); run(40);
+    host_key('7', true); run(20); for (int z = 0; z < 13; z++) gp = gp && omni_zone_note(z) == g_plate[z]; host_key('7', false); run(80);
+    CHECK(cp && gp, "the strumplate: C major C4 E4 G3 … C8, G major G3 B3 D4 … G7, as the OM-108's manual has them");
+    /* a combination let go unevenly doesn't flash its parts; one kept down on purpose does change */
+    host_key('6', true); host_key('y', true); run(30); bool dim = omni.suffix == SUF_DIM;
+    host_key('6', false); run(15); host_key('y', false); run(100);
+    bool no_flash = omni.suffix == SUF_DIM && !omni.chord_on;
+    host_key('6', true); host_key('y', true); run(30); host_key('6', false); run(120);
+    bool changed = omni.suffix == SUF_MIN && omni.chord_on; host_key('y', false); run(80);
+    CHECK(dim && no_flash && changed, "6+Y is C dim; let go 15 ms apart it stays C dim, Y kept down becomes C minor after a moment");
+    /* HOLD keeps the chord; INSTANT OFF stops it (and the strings), the rhythm running on in START */
+    omni_set_voice(7); run(20);                                        /* organ: it sustains */
+    host_tap('`'); host_key('6', true); run(40); host_key('6', false); run(300);
+    struct heard held = listen(200);
+    host_tap('`'); run(400);
+    struct heard unheld = listen(200);
+    CHECK(omni.hold == false && held.rms > 300 && unheld.rms < 20, "` HOLD keeps the chord after the button (rms %.0f), ` again lets it go (%.1f)", held.rms, unheld.rms);
+    mix.ch[CH_RHYTHM].mute = true;
+    host_tap(KEY_SPACE); host_key('6', true); run(40); host_key('6', false);
+    host_tap('`'); host_key('z', true); run(60); host_key('z', false); host_key('x', true); run(60); host_key('x', false); run(100);
+    struct heard before = listen(100);
+    host_tap(KEY_BACKSPACE); run(60);
+    struct heard after = listen(100);
+    CHECK(before.rms > 300 && after.rms < 30 && rhythm.playing && !omni.chord_on && omni.hold, "BACKSPACE, INSTANT OFF: the chord and the strings stop (rms %.0f → %.1f), the rhythm plays on, HOLD stays set", before.rms, after.rms);
+    host_tap(KEY_SPACE); host_tap('`'); run(100);
+    omni_set_hold(false, host_now_ms); mix.ch[CH_RHYTHM].mute = false; run(300);
+    /* SYNC START: the first chord starts the rhythm; INSTANT OFF stops it again */
+    host_shift_tap(' '); run(20);
+    bool armed = omni.sync && !rhythm.playing;
+    host_key('6', true); run(60); bool started = rhythm.playing; host_key('6', false); run(40);
+    host_tap(KEY_BACKSPACE); run(60);
+    CHECK(armed && started && !rhythm.playing, "⇧SPACE arms SYNC START: a chord starts the rhythm, INSTANT OFF stops it");
+    host_shift_tap(' '); run(20);
+    /* a pattern chosen while it plays waits for the next bar */
+    uint16_t bpm = seq.bpm; seq.bpm = 120;
+    rhythm_select(0); host_tap(KEY_SPACE); run(700);
+    host_tap(KEY_RIGHT); run(20);
+    bool waits = rhythm.next == 9 && rhythm.pattern == 0;
+    run(2100);
+    CHECK(waits && rhythm.pattern == 9 && rhythm.next == 0xFF, "→ picks ROCK 2 while ROCK 1 plays: it waits for the bar, then plays");
+    host_tap(KEY_SPACE); run(200);
+    /* AUTO: the rhythm plays the chord and a bass that follow the buttons; the omnichord's MIDI out, on its channels */
+    CHECK(midi_open(0), "MIDI port open");
+    midi.omni_out = true; omni_set_auto(true, host_now_ms); omni_set_voice(1);
+    int m0 = host_midi_out_len;
+    host_key('6', true); run(20); host_tap('z'); host_tap('x');
+    rhythm_select(2); host_tap(KEY_SPACE); run(2100);                    /* DISCO: its bass hops octaves on the root */
+    int m1 = host_midi_out_len;
+    host_key('8', true); host_key('6', false); run(2100);               /* D major */
+    int m2 = host_midi_out_len;
+    host_tap(KEY_SPACE); host_key('8', false); run(200);
+    bool strings = midi_count(0x90, m0, m1, -1) >= 2 && midi_count(0x93, m0, m1, -1) >= 2;
+    bool bass = midi_count(0x92, m0, m1, 0) >= 4 && midi_count(0x92, m0, m1, 2) == 0 && midi_count(0x92, m1, m2, 2) >= 4 && midi_count(0x92, m1, m2, 0) == 0;
+    bool chord = midi_count(0x91, m1, m2, 2) >= 2 && midi_count(0x91, m1, m2, 6) >= 2, drums = midi_count(0x99, m0, m2, 0) >= 4;
+    CHECK(strings && bass && chord && drums && m2 > m1, "AUTO: C then D, the bass follows on channel 3, the chord on 2; the strings on 1 and 4, the drums on 10");
+    midi.omni_out = false; omni_set_voice(0); seq.bpm = bpm; rhythm_select(0);
+    /* keyboard mode: the 7th row the white keys, the MINOR row the black ones, the MAJOR row T P ↓ ↑ and drums */
+    omni_set_voice(2);                                                  /* harp: a triangle, easy to measure */
+    host_tap(KEY_CAPS); run(20);
+    host_key('a', true); run(60); double c4 = measure_freq(300); host_key('a', false); run(200);
+    host_key('w', true); run(60); double cs4 = measure_freq(300); host_key('w', false); run(200);
+    host_tap('4'); host_key('a', true); run(60); double c5 = measure_freq(300); host_key('a', false); host_tap('3'); run(200);
+    host_key('1', true); host_tap('4'); host_tap('4'); host_key('1', false); run(20);
+    int t2 = omni.transpose;
+    host_key('1', true); host_tap('3'); host_tap('3'); host_key('1', false);
+    run(600); int32_t quiet = mix.ch[CH_RHYTHM].vu_l; host_tap('5'); run(30); int32_t drum = mix.ch[CH_RHYTHM].vu_l;
+    host_tap(KEY_CAPS); run(300);
+    CHECK(fabs(c4 - 261.6) < 2 && fabs(cs4 - 277.2) < 2 && fabs(c5 - 523.3) < 3 && t2 == 2 && omni.transpose == 0 && quiet < 50 && drum > 1000 && !omni.keyboard,
+          "CAPS, keyboard mode: A C4 (%.1f Hz), W C#4 (%.1f), 4 an octave up (%.1f); 1 held with 4 4 transposes +2; 5 a bass drum; CAPS back", c4, cs4, c5);
+    omni_set_voice(0);
+    /* saved: OMN2 and RHY2; OMNI and RHYT stay for older builds; a 2.5 project's chord (Eb-first roots) loads as it was */
+    static uint8_t blob[PROJECT_MAX];
+    omni.root = 7; omni.suffix = SUF_SUS4; omni_set_voice(8); omni.sub_level = 33; omni.sustain = 99; omni_set_transpose(-3); omni_set_tune(2);
+    omni.autoplay = true; omni.sync = true; rhythm_select(12); rhythm.classic = true;
+    size_t n = project_save(blob, sizeof blob, 0, true);
+    omni_init(); rhythm_select(0); rhythm.classic = false; omni.autoplay = false;
+    project_load(blob, n);
+    bool kept = omni.root == 7 && omni.suffix == SUF_SUS4 && omni.voice == 8 && omni.sub_level == 33 && omni.sustain == 99 && omni.transpose == -3 &&
+                omni.tune == 2 && omni.autoplay && omni.sync && rhythm.pattern == 12 && rhythm.classic;
+    uint8_t *o2 = 0; for (size_t i = 0; i + 4 < n; i++) if (!memcmp(blob + i, "OMN2", 4)) o2 = blob + i;
+    if (o2) memcpy(o2, "XXXX", 4);
+    uint8_t *r2 = 0; for (size_t i = 0; i + 4 < n; i++) if (!memcmp(blob + i, "RHY2", 4)) r2 = blob + i;
+    if (r2) memcpy(r2, "XXXX", 4);
+    project_load(blob, n);                                              /* as an older build reads it */
+    bool older = omni.root == 7 && omni.suffix == SUF_MAJ && rhythm.pattern == 3;
+    uint8_t old[64]; uint32_t l; size_t k = 0;
+    memcpy(old, "HBPJ", 4); l = 1; memcpy(old + 4, &l, 4); old[8] = '2'; k = 9;
+    memcpy(old + k, "OMNI", 4); l = 8; memcpy(old + k + 4, &l, 4);
+    memcpy(old + k + 8, (const uint8_t[]){ 1, 3, P_ORGAN, P_PLUCK, 0, 0, 0, 1 }, 8); k += 16;   /* C minor in 2.5's order, hold on */
+    memcpy(old + k, "END ", 4); l = 0; memcpy(old + k + 4, &l, 4); k += 8;
+    project_load(old, k);
+    bool v25 = omni.root == 5 && omni.suffix == SUF_MIN && omni.hold;
+    CHECK(kept && older && v25, "saved and loaded: the voice, levels, transpose, tune, switches, HIP HOP, CLASSIC; an older build gets G major and 16 BEAT; 2.5's C minor with HOLD comes back as C minor, held");
+    omni_init(); rhythm_select(0); rhythm.classic = false; omni.autoplay = true; omni_set_transpose(0); omni_set_tune(0);
+    HOST_SET_ECHO(true); host_tap(KEY_ESC); run(200);
+}
+
+/* keys that follow the chord (⇧K): the nearest chord tone, ties up; a chord changed under a held key lets go what it
+   started; MIDI and the clouds follow; saved with the project */
+static void harmony_checks(void) {
+    printf("keys follow the chord\n");
+    to_play(); host_tap(KEY_ESC); run(300);
+    HOST_SET_ECHO(false);
+    omni_button(ROW_MAJ, 5, true, host_now_ms); omni_button(ROW_MAJ, 5, false, host_now_ms); run(50);   /* C major, let go */
+    int voices = synth_active_voices();
+    host_shift_tap('k'); run(30);
+    bool toggled = harmony_on && synth_active_voices() == voices;
+    static const int want[12] = { 60, 60, 64, 64, 64, 64, 67, 67, 67, 67, 72, 72 };
+    bool table = true;
+    for (int i = 0; i < 12; i++) table = table && harmony_note(60 + i) == want[i];
+    harmony_on = false; bool off = harmony_note(61) == 61; harmony_on = true;
+    CHECK(toggled && table && off && harmony_snap_q8(62 * 256 + 60) == 64 * 256, "⇧K: C D E F# land on C E E G … (ties up); off, a note stays itself; nothing plays");
+    /* WAVE: D played on its keys sounds E; MIDI too */
+    int draw_slot = synth_draw_slot; synth_draw_slot = 0;
+    host_tap(KEY_F3); run(50);
+    host_key('x', true); run(60); double e = measure_freq(300); host_key('x', false); run(300);
+    CHECK(midi_open(0), "MIDI port open");
+    midi_send((const uint8_t[]){ 0xE0, 0x00, 0x40 }, 3);                   /* the bend centred (the MIDI checks leave one) */
+    midi_send((const uint8_t[]){ 0x90, 62, 100 }, 3); run(60); double me = measure_freq(300); midi_send((const uint8_t[]){ 0x80, 62, 0 }, 3); run(300);
+    double f_e4 = 329.6 * pow(2, (12 * (4 - 4)) / 12.0);
+    CHECK(fabs(e / f_e4 - round(e / f_e4)) < 0.02 && fabs(me - 329.6) < 3, "WAVE: D on its keyboard sounds E (%.1f Hz), MIDI's D4 too (%.1f)", e, me);
+    synth_draw_slot = draw_slot;
+    /* GENDY: a key held while the chord moves lets go of what it started */
+    host_tap(KEY_F12); run(60); xen_goto(XV_GENDY); run(30);
+    host_key('x', true); run(100);
+    omni_button(ROW_MAJ, 7, true, host_now_ms); omni_button(ROW_MAJ, 7, false, host_now_ms); run(50);   /* D major now */
+    host_key('x', false); run(1500);
+    CHECK(synth_active_voices() == 0, "GENDY: the chord changed under a held key, its note still ends with the key (%d voices)", synth_active_voices());
+    /* the clouds sound only the chord's notes */
+    omni_button(ROW_MAJ, 5, true, host_now_ms); omni_button(ROW_MAJ, 5, false, host_now_ms); run(30);
+    uint32_t m0 = cloud_mark_n;
+    clouds[0].on = true; run(3000); clouds[0].on = false; run(300);
+    int in = 0, out = 0;
+    for (uint32_t i = m0; i < cloud_mark_n && i - m0 < CLOUD_MARKS; i++) { int pc = ((cloud_marks[i % CLOUD_MARKS].pitch + 128) >> 8) % 12; if (pc == 0 || pc == 4 || pc == 7) in++; else out++; }
+    CHECK(in >= 10 && out == 0, "CLOUDS: a cloud's notes are C, E and G (%d on the chord, %d off)", in, out);
+    /* saved with the project */
+    static uint8_t blob[PROJECT_MAX];
+    size_t n = project_save(blob, sizeof blob, 0, true);
+    harmony_on = false; project_load(blob, n);
+    bool kept = harmony_on;
+    host_shift_tap('k'); run(30);
+    CHECK(kept && !harmony_on, "saved with the project (HRM1); ⇧K again: off");
+    HOST_SET_ECHO(true); to_play(); host_tap(KEY_ESC); run(200);
+}
+
+/* METASTASEIS: strings strung between two guides; a string sounds its line; the mass stays below clipping; onto UPIC's
+   page; saved; undone */
+/* XENAKIS showing: it is LINEAGE's view since it moved inside */
+static bool on_xen(void) { return app_page() == PAGE_LINEAGE && lineage_current() == LV_XEN; }
+
+static void meta_checks(void) {
+    printf("metastaseis\n");
+    to_play(); host_tap(KEY_ESC); run(300);
+    HOST_SET_ECHO(false);
+    host_tap(KEY_F12); run(60); xen_goto(XV_META); run(30);
+    bool first = XV_META == 0 && !strcmp(xen_view_name(0), "METASTASEIS") && on_xen() && xen_current() == XV_META;
+    /* a fan: a point to a vertical line, five strings evenly; crossed, the ends swap; the golden section's gaps grow */
+    meta_defaults();
+    for (int f = 1; f < META_FAMILIES; f++) meta.fam[f].on = false;
+    meta.fam[0] = (struct meta_family){ { 1000, 60 * 256, 1000, 60 * 256 }, { 33000, 48 * 256, 33000, 72 * 256 }, 5, false, false, true, META_VLN1, 80 };
+    meta_compile();
+    const struct meta_string *st; int n = meta_strings(&st);
+    bool fan = n == 5;
+    for (int i = 0; i < n && fan; i++) fan = st[i].t0 == 1000 && st[i].p0 == 60 * 256 && st[i].t1 == 33000 && st[i].p1 == (uint16_t)(48 * 256 + i * 6 * 256);
+    meta.fam[0].cross = true; meta_compile(); n = meta_strings(&st);
+    bool crossed = n == 5 && st[0].p1 == 72 * 256 && st[4].p1 == 48 * 256;
+    meta.fam[0].cross = false; meta.fam[0].modulor = true; meta.fam[0].n = 8; meta_compile(); n = meta_strings(&st);
+    int g1 = st[2].p1 - st[1].p1, g5 = st[6].p1 - st[5].p1;
+    bool golden = n == 8 && g1 > 0 && g5 > g1 * 4;
+    CHECK(first && fan && crossed && golden, "METASTASEIS first in XENAKIS's bar; a point to a line: a fan of 5; crossed, the ends swap; the golden section's gaps grow (%d to %d)", g1, g5);
+    /* one string: at its middle it sounds the pitch its line has there */
+    meta.fam[0] = (struct meta_family){ { 0, 57 * 256, 0, 57 * 256 }, { 65535, 81 * 256, 65535, 81 * 256 }, 2, false, false, true, META_VLN1, 100 };
+    meta_compile(); meta.fam[0].n = 2;
+    meta.fam[0].b = meta.fam[0].a = (struct meta_line){ 0, 57 * 256, 0, 57 * 256 };
+    meta.fam[0].b = (struct meta_line){ 65535, 81 * 256, 65535, 81 * 256 };
+    meta_compile();                                                         /* two strings, both A3 to A5 over the page */
+    meta.bars = 0; meta.seconds = 240; meta.pos = 0x7FFF0000u; meta.playing = true; run(60);
+    double f = pitch_of(200);
+    meta.playing = false; run(200);
+    CHECK(fabs(f - 440) < 12, "a string A3 to A5 across the page, heard at its middle: A4 (%.1f Hz)", f);
+    /* the whole opening: 46 strings at once, and nothing clips */
+    meta_defaults(); meta.pos = (uint32_t)25000 << 16; meta.playing = true; run(50);
+    struct level lv = measure(600);
+    meta.playing = false; run(300);
+    CHECK(lv.clips == 0 && lv.peak > 2000, "the opening's cluster, 46 strings: loud (peak %.0f) and nothing clipped", lv.peak);
+    /* onto UPIC's page: the family's strings as arcs; when they don't fit, nothing */
+    upic_clear();
+    int w = meta_write_upic(0);
+    bool arcs = w == 46 && upic.narcs == 46;
+    for (int k = 0; k < 3; k++) meta_write_upic(0);                          /* 184 arcs: the page's 192 nearly full */
+    int more = meta_write_upic(0);
+    CHECK(arcs && more == -1 && upic.narcs == 184, "ENTER writes the family onto UPIC's page (%d arcs); no room: nothing", w);
+    upic_clear();
+    /* saved with the project; an edit undone */
+    static uint8_t blob[PROJECT_MAX];
+    meta.fam[2].n = 31; meta.fam[2].on = true; meta.seconds = 60; meta.bars = 0; meta_compile();
+    size_t bn = project_save(blob, sizeof blob, 0, true);
+    meta_defaults(); project_load(blob, bn);
+    bool kept = meta.fam[2].n == 31 && meta.fam[2].on && meta.seconds == 60;
+    host_tap(KEY_F12); run(40); xen_goto(XV_META); run(40);
+    host_tap('3'); host_tap('o'); run(40);                                  /* family 3: on → off */
+    bool edited = !meta.fam[2].on;
+    host_key(KEY_LCTRL, true); host_tap('z'); host_key(KEY_LCTRL, false); run(40);
+    CHECK(kept && edited && meta.fam[2].on, "saved with the project (MTS1); an edit on the view undone with Ctrl+Z");
+    meta_defaults(); HOST_SET_ECHO(true); to_play(); run(50);
+}
+
+/* LINEAGE: CARLOS's scales and glide, the LINEAGE channel */
+/* whether an ASCII text shows anywhere on the cell grid */
+static bool on_screen(const char *t) {
+    int n = (int)strlen(t);
+    for (int y = 0; y < text_rows(); y++)
+        for (int x = 0; x + n <= text_cols(); x++) {
+            int i = 0; while (i < n && text_peek(x + i, y) == (uint8_t)t[i]) i++;
+            if (i == n) return true;
+        }
+    return false;
+}
+
+/* REICH: every hit, as it happens (the engine keeps only the last 64) */
+static struct phase_hit hits[20000]; static int nhits; static uint32_t seen;
+static void collect(int ms) {
+    for (int i = 0; i < ms; i++) {
+        run(1);
+        for (; seen < phase_log_n; seen++) if (nhits < (int)ARRAY_LEN(hits)) hits[nhits++] = phase_log[seen % PHASE_LOG];
+    }
+}
+static void reich_start(int mode) {
+    phase_play(false); run(20); nhits = 0; seen = phase_log_n;
+    reich.mode = (uint8_t)mode; reich.players = 2; reich.len = 12; reich.per_beat = 4; reich.hold = 1; reich.move = 1; reich.drift = 5;
+    seq.bpm = 300; phase_play(true);                                     /* a step: 48000 * 60 / (300 * 4) = 2400 frames */
+}
+/* the players' hits from the n-th on, one list each: frame and step */
+static int of_player(int p, uint32_t *frame, uint8_t *step, int max) {
+    int k = 0; for (int i = 0; i < nhits && k < max; i++) if (hits[i].player == p) { frame[k] = hits[i].frame; step[k] = hits[i].step; k++; }
+    return k;
+}
+static void reich_checks(void) {
+    uint16_t bpm = seq.bpm;
+    lineage_goto(LV_REICH); run(40); phase_defaults();
+    /* PHASE: a repeat in unison, a move (twelve steps in the time of eleven), locked a step ahead on the first's frames */
+    reich_start(PM_PHASE); collect(2 * 12 * 50 + 11 * 50 + 12 * 50 + 30);
+    static uint32_t f0[8000], f1[8000]; static uint8_t s0[8000], s1[8000];
+    int n0 = of_player(0, f0, s0, 8000), n1 = of_player(1, f1, s1, 8000);
+    bool grid = n0 > 40; for (int i = 1; i < n0; i++) grid = grid && f0[i] - f0[0] == (uint32_t)i * 2400;
+    bool unison = n1 > 40; for (int i = 0; i < 12; i++) unison = unison && f1[i] == f0[i] && s1[i] == s0[i];
+    bool move = true; for (int i = 13; i <= 23; i++) move = move && f1[i] - f1[12] == (uint32_t)(i - 12) * 2200;
+    int j = 0; while (j < n0 && f0[j] != f1[24]) j++;                    /* locked: the first's hit at the same frame */
+    bool locked = j < n0 && j + 11 < n0;
+    for (int i = 0; i < 12 && locked; i++) locked = f1[24 + i] == f0[j + i] && s1[24 + i] == (s0[j + i] + 1) % 12;
+    CHECK(grid && unison && move && locked,
+          "REICH, PHASE: the first on its grid to the frame; the second with it, then 12 steps in the time of 11 (2200 frames each), "
+          "then locked a step ahead on the first's frames (%d and %d hits)", n0, n1);
+    /* twelve moves later the two are in unison again: a hold of 12 steps, then 12 × (11 moving + 12 locked) — look
+       half way into the twelfth hold, step 282 */
+    collect(282 * 50 - (2 * 12 * 50 + 11 * 50 + 12 * 50 + 30));
+    n0 = of_player(0, f0, s0, 8000); n1 = of_player(1, f1, s1, 8000);
+    int last1 = n1 - 1, k0 = n0 - 1; while (k0 > 0 && f0[k0] != f1[last1]) k0--;
+    CHECK(f0[k0] == f1[last1] && s0[k0] == s1[last1] && !phase_pl[1].moving && phase_offset_q16(1) == 0,
+          "after twelve moves the second is back in unison with the first (step %d with %d)", s1[last1], s0[k0]);
+    /* SHIFT: on the grid always, a step further after each repeat */
+    reich_start(PM_SHIFT); collect(3 * 12 * 50 + 30);
+    n0 = of_player(0, f0, s0, 8000); n1 = of_player(1, f1, s1, 8000);
+    bool together = n1 >= 36 && n0 >= 36, jumps = true;
+    for (int i = 0; i < 36 && together; i++) together = f1[i] == f0[i];
+    for (int r = 0; r < 3; r++) jumps = jumps && (s1[r * 12] - s0[r * 12] + 12) % 12 == r;
+    CHECK(together && jumps, "SHIFT: the second plays on the first's frames, a step further each repeat (0, 1, 2)");
+    /* DRIFT: half a percent faster, never locking */
+    reich_start(PM_DRIFT); collect(40 * 50);
+    n1 = of_player(1, f1, s1, 8000);
+    bool drift = n1 > 30; for (int i = 1; i < n1 && drift; i++) { uint32_t d = f1[i] - f1[i - 1]; drift = d == 2388 || d == 2387 || d == 2389; }
+    CHECK(drift, "DRIFT: the second's steps are 0.5%% shorter (2388 frames against 2400)");
+    phase_play(false); run(1500);                                        /* the marimbas' release */
+    int voices = synth_active_voices();
+    /* the pattern and the process are kept with the project, and nothing plays after it stops */
+    reich.mode = PM_SHIFT; reich.players = 3; reich.len = 9; reich.notes[4] = 0; reich.notes[5] = 71; reich.hold = 5; reich.sound = 2;
+    static uint8_t blob[PROJECT_MAX]; size_t n = project_save(blob, sizeof blob, 0, true); phase_defaults(); project_load(blob, n);
+    CHECK(reich.mode == PM_SHIFT && reich.players == 3 && reich.len == 9 && reich.notes[4] == 0 && reich.notes[5] == 71 && reich.hold == 5 &&
+          reich.sound == 2 && !reich.playing && voices == 0, "REICH's pattern and process are kept with the project; stopped, nothing sounds (%d voices)", voices);
+    phase_defaults(); seq.bpm = bpm;
+}
+
+static void lineage_checks(void) {
+    printf("lineage\n");
+    to_play(); host_tap(KEY_ESC); run(300);
+    HOST_SET_ECHO(false);
+    host_tap(KEY_F11); run(40); lineage_goto(LV_CARLOS); run(40);
+    carlos_init(); carlos.octave = 3; carlos.wave = 0; carlos.cutoff = 127; carlos.contour = 0; carlos_apply();
+    /* alpha: nine steps up from C3 (the tenth key) are 702 cents; gamma: twenty are 702 too — a fifth pure within a cent */
+    carlos.scale = CS_ALPHA; host_key('/', true); run(80); double fa = pitch_of(250); host_key('/', false); run(400);
+    carlos.scale = CS_GAMMA; host_key('\'', true); run(80); double fg = pitch_of(250); host_key('\'', false); run(400);
+    carlos.scale = CS_12TET; host_key('m', true); run(80); double fe = pitch_of(250); host_key('m', false); run(400);
+    double c3 = 130.813, ea = c3 * pow(2, 702 / 1200.0), eg = c3 * pow(2, 702 / 1200.0), ee = c3 * pow(2, 600 / 1200.0);
+    CHECK(fabs(fa / ea - 1) < 0.004 && fabs(fg / eg - 1) < 0.004 && fabs(fe / ee - 1) < 0.004,
+          "CARLOS: alpha's 9th step %.1f Hz (%.1f) and gamma's 20th %.1f (%.1f): fifths; equal's 6th %.1f (%.1f)", fa, ea, fg, eg, fe, ee);
+    /* one voice, gliding: half way there at half its time, there at the end */
+    carlos.mono = true; carlos.glide = 50; carlos.scale = CS_12TET; carlos_apply();     /* 250 ms */
+    host_key('z', true); run(100); host_key('b', true); run(125);
+    int32_t q[4]; carlos_sounding(q, 4); int32_t mid = q[0];
+    run(300); carlos_sounding(q, 4); int32_t end = q[0];
+    host_key('b', false); host_key('z', false); run(400);
+    int32_t c = carlos_pitch_q8(0), e = carlos_pitch_q8(4);
+    CHECK(mid > c + (e - c) / 3 && mid < c + (e - c) * 2 / 3 && end == e && synth_active_voices() == 0,
+          "one voice: Z then B glide a major third over 250 ms (half way at %.2f, there after), and let go it ends", (mid - c) / 256.0);
+    carlos.mono = false; carlos.glide = 20;
+    /* Enter compares the omnichord's chord (C major) in alpha and in equal temperament: the third's cents in each */
+    omni_button(ROW_MAJ, 5, true, host_now_ms); omni_button(ROW_MAJ, 5, false, host_now_ms); run(100);   /* C major */
+    carlos.scale = CS_ALPHA; host_tap(KEY_ENTER); run(200);
+    bool compared = on_screen("3rd") && on_screen(" 390.0  equal  400  pure  386.3") && on_screen(" 702.0  equal  700  pure  701.9");
+    run(3400);
+    CHECK(compared, "Enter: the chord in alpha against equal temperament, cents from the root (3rd 390.0 / 400 / 386.3, 5th 702.0 / 700 / 701.9)");
+    /* the LINEAGE channel: its fader silences it, and it is kept with the project */
+    mix.ch[CH_LINEAGE].db = MIX_DB_OFF;
+    host_key('z', true); run(100); struct heard off = listen(150); host_key('z', false); run(300);
+    mix.ch[CH_LINEAGE].db = -9;
+    static uint8_t blob[PROJECT_MAX]; size_t n = project_save(blob, sizeof blob, 0, true);
+    mix.ch[CH_LINEAGE].db = 0; project_load(blob, n);
+    CHECK(off.rms < 5 && mix.ch[CH_LINEAGE].db == -9, "the LINEAGE fader silences it (rms %.1f); kept with the project", off.rms);
+    mix.ch[CH_LINEAGE].db = 0;
+    /* CARLOS's patch is kept with the project */
+    carlos.scale = CS_GAMMA; carlos.octave = 2; carlos.cutoff = 33; carlos.mono = true;
+    n = project_save(blob, sizeof blob, 0, true); carlos_init(); project_load(blob, n);
+    CHECK(carlos.scale == CS_GAMMA && carlos.octave == 2 && carlos.cutoff == 33 && carlos.mono, "CARLOS's scale, octave, filter and mono are kept with the project");
+    carlos_init(); run(300);
+
+    /* MERZBOW: every source sounds; at its loudest it stays under the cap and nothing clips */
+    lineage_goto(LV_MERZBOW); run(40); junk_defaults(); run(3500);
+    CHECK(lineage_current() == LV_MERZBOW && strcmp(views_name(PAGE_LINEAGE, LV_MERZBOW), "MERZBOW") == 0, "LINEAGE: MERZBOW shows");
+    struct heard quiet = listen(100);
+    for (int i = 0; i < 12; i++) { host_finger(0, 3000 + i * 2200, 9000, 110, 0); run(15); }          /* a finger scraping */
+    struct heard sc = listen(150); host_finger(0, 0, 0, 0, 0); run(400);
+    host_tap('q'); host_tap('g'); struct heard mt = listen(200); run(3500);                        /* junk struck */
+    host_key(KEY_SPACE, true); run(600); struct heard fb = listen(200); host_key(KEY_SPACE, false); run(200);   /* feedback, held */
+    struct heard fb_off = listen(100);
+    host_tap(KEY_ENTER); run(50); struct heard by = listen(200); host_tap(KEY_ENTER); run(200);        /* the bytes */
+    CHECK(quiet.rms < 5 && sc.rms > 300 && mt.rms > 300 && fb.rms > 300 && by.rms > 300 && fb_off.rms < fb.rms / 4,
+          "MERZBOW: scrape %.0f, metal %.0f, feedback %.0f (let go: %.0f), bytes %.0f; quiet before %.1f", sc.rms, mt.rms, fb.rms, fb_off.rms, by.rms, quiet.rms);
+    host_tap(KEY_DOWN); host_tap(KEY_UP); host_tap(KEY_RIGHT); run(20);
+    CHECK(junk.drive == 45, "↑ ↓ pick a knob, → turns it (drive %d)", junk.drive);
+    junk.drive = 100; junk.bits = 3; junk.feedback = 100; junk.grain = 100; junk.level = 100; junk.bytes_rate = 100;
+    int vol = audio_volume_db(); while (audio_volume_db() < 0) audio_volume_step(+1);                  /* the master at 0 dB */
+    host_key(KEY_SPACE, true); host_tap(KEY_ENTER); for (int k = 0; k < 8; k++) host_tap((uint8_t)"qwertyui"[k]);
+    for (int i = 0; i < 20; i++) { host_finger(0, 2000 + i * 1500, 3000, 127, 0); host_finger(1, 30000 - i * 1500, 5000, 127, 0); run(10); }
+    struct heard loud = listen(400);
+    host_key(KEY_SPACE, false); host_tap(KEY_BACKSPACE); host_finger(0, 0, 0, 0, 0); host_finger(1, 0, 0, 0, 0);
+    while (audio_volume_db() > vol) audio_volume_step(-1);
+    CHECK(loud.rms > 3000 && loud.rms < 9000 && loud.peak < 32767, "everything at once, every knob up: rms %.0f (the cap: ~8000, -12 dBFS), peak %d, no clipping", loud.rms, loud.peak);
+    /* idle it costs nothing, and CARLOS passes through untouched (drive, crush and chop take MERZBOW's own sounds only) */
+    run(3500);
+    int32_t bl[32], br[32];
+    CHECK(!junk_render(bl, br, 32, false), "let go, MERZBOW renders nothing (the LINEAGE bus stays off)");
+    lineage_goto(LV_CARLOS); run(40); carlos_init();
+    host_key('z', true); run(100); struct heard clean = listen(200); host_key('z', false); run(400);
+    junk.drive = 100; junk.bits = 1; junk.chop = 100;
+    host_key('z', true); run(100); struct heard still = listen(200); host_key('z', false); run(400);
+    junk_defaults();
+    CHECK(fabs(still.rms / clean.rms - 1) < 0.01 && fabs(still.hz / clean.hz - 1) < 0.005, "CARLOS isn't crushed by MERZBOW's knobs (rms %.0f vs %.0f)", still.rms, clean.rms);
+    /* MERZBOW's knobs are kept with the project */
+    junk.drive = 85; junk.bits = 4; junk.chop = 20;
+    n = project_save(blob, sizeof blob, 0, true); junk_defaults(); project_load(blob, n);
+    CHECK(junk.drive == 85 && junk.bits == 4 && junk.chop == 20, "MERZBOW's knobs are kept with the project");
+    junk_defaults();
+
+    /* RADIGUE: two partials 15.7 cents apart on A2 (110 Hz) beat once a second, and the dips are heard a second apart */
+    lineage_goto(LV_RADIGUE); run(40); drone_defaults();
+    for (int i = 0; i < DRONE_PARTIALS; i++) radigue.p[i].level = 0;
+    radigue.p[0] = (struct drone_partial){ 1, 0, 100, 600 }; radigue.p[1] = (struct drone_partial){ 1, 157, 100, 600 };
+    radigue.depth = 0; radigue.fade_s = 1; radigue.sweep_s = 0; drone_sweep_to(45000);
+    int32_t beat = drone_beat_mhz(0);
+    host_tap(KEY_SPACE); run(1500);
+    double env[250], top = 0; for (int w = 0; w < 250; w++) { env[w] = listen(20).rms; top = fmax(top, env[w]); }
+    double dip[8]; int nd = 0;
+    for (int w = 10; w < 240 && nd < 8; w++) {
+        bool low = env[w] < top * 0.3;
+        for (int k = -10; k <= 10 && low; k++) low = env[w] <= env[w + k];
+        if (low) dip[nd++] = w * 0.02;
+    }
+    double per = nd >= 2 ? (dip[nd - 1] - dip[0]) / (nd - 1) : 0;
+    CHECK(beat > 995 && beat < 1010 && nd >= 4 && fabs(per - 1.0) < 0.03,
+          "RADIGUE: A2 and A2 +15.7¢ beat at %d.%03d Hz; heard: %d dips, %.3f s apart", beat / 1000, beat % 1000, nd, per);
+    /* a sweep of ten seconds to A3 is half way (in pitch) at five, and there at ten */
+    radigue.sweep_s = 10; drone_sweep_to(57000); run(5000);
+    int32_t half = drone_base_now(); run(5100);
+    CHECK(abs(half - 51000) < 150 && drone_base_now() == 57000 && drone_sweep_left_s() == 0,
+          "a 10 s sweep A2 → A3: %d.%d semitones up at 5 s, there at 10", (half - 45000) / 1000, (half - 45000) % 1000 / 100);
+    /* the fade: out over two seconds, half way at one; then silent and costing nothing */
+    radigue.fade_s = 2; host_tap(KEY_SPACE); run(1000);
+    int32_t fmid = drone_fade_q15(); run(1100);
+    int32_t bl2[32], br2[32];
+    CHECK(abs(fmid - 16384) < 1200 && !drone_sounding() && !drone_render(bl2, br2, 32, false),
+          "Space fades it out over the fade's time: %d%% at half of it, then silent (nothing rendered)", fmid * 100 / 32768);
+    /* keys following the chord: the base goes to the chord's root, the nearest one */
+    radigue.sweep_s = 0; drone_sweep_to(36000); host_tap(KEY_SPACE); run(200);
+    omni_button(ROW_MAJ, 6, true, host_now_ms); omni_button(ROW_MAJ, 6, false, host_now_ms); harmony_on = true; run(100);   /* G */
+    int32_t g = radigue.target;
+    harmony_on = false; host_tap(KEY_SPACE); run(2200);
+    CHECK(g == 31000, "with keys following the chord, G moves the base from C2 to G1 (the nearest G): %d", g / 1000);
+    /* the letter keys send the base there; its patch is kept with the project, and whether it sounds is not */
+    radigue.sweep_s = 0; host_tap('b'); run(20);
+    bool keyed = radigue.target == (3 * 12 + 7) * 1000;                  /* B is G on the keys: from C2 */
+    radigue.p[3].detune = -123; radigue.p[5].harmonic = 11; radigue.depth = 35; radigue.sweep_s = 600;
+    n = project_save(blob, sizeof blob, 0, true); drone_defaults(); project_load(blob, n);
+    CHECK(keyed && radigue.p[3].detune == -123 && radigue.p[5].harmonic == 11 && radigue.depth == 35 && radigue.sweep_s == 600 &&
+          radigue.target == 43000 && drone_base_now() == 43000 && !drone_sounding(), "B on the keys sends the base to G2; the patch is kept with the project");
+    drone_defaults();
+    reich_checks();
+    carlos_init(); lineage_goto(LV_ANS); HOST_SET_ECHO(true); to_play(); run(50);
+}
+
+/* the rhythm section: SPACE starts it; every hit lands on the pattern's grid, to the sample */
 static void rhythm_checks(void) {
     printf("rhythm\n");
     to_play(); host_tap(KEY_ESC); run(300);
     uint16_t bpm = seq.bpm; seq.bpm = 60;
-    rhythm.pattern = 2; rhythm.bass = false; rhythm.mute = 6;           /* DISCO: four equal kicks a bar, alone */
+    rhythm_select(2); omni.autoplay = false; rhythm.mute = 6 | 16 | 32;  /* DISCO: four equal kicks a bar, alone */
     HOST_SET_ECHO(false); run(300);
     host_wav_open("/tmp/hb-check-rhythm.wav");
-    host_tap('r'); run_capture(6000);
+    host_tap(KEY_SPACE); run_capture(6000);
     host_wav_close();
-    CHECK(rhythm.playing, "R starts the rhythm (pattern %s)", rhythm_names[rhythm.pattern]);
-    host_tap('r'); run(300);
-    CHECK(!rhythm.playing, "R stops it");
-    seq.bpm = bpm; rhythm.bass = true; rhythm.mute = 0; HOST_SET_ECHO(true);
+    CHECK(rhythm.playing, "SPACE starts the rhythm (pattern %s)", rhythm_names[rhythm.pattern]);
+    host_tap(KEY_SPACE); run(300);
+    CHECK(!rhythm.playing, "SPACE stops it");
+    seq.bpm = bpm; omni.autoplay = true; rhythm.mute = 0; HOST_SET_ECHO(true);
     FILE *f = fopen("/tmp/hb-check-rhythm.wav", "rb"); fseek(f, 44, SEEK_SET);
     static int16_t d[48000 * 8 * 2]; long n = (long)fread(d, 4, 48000 * 8, f); fclose(f); remove("/tmp/hb-check-rhythm.wav");
     double on[64]; int no = 0; long quiet = 48 * 30;
@@ -1392,6 +1878,9 @@ static void touch_checks(void) {
     struct heard pad2 = listen(300);
     host_finger(0, 0, 0, 0, 0); host_finger(1, 0, 0, 0, 0); run(300);
     CHECK(pad2.rms > 2000 && pad2.hz > 20, "two touchpad fingers on OUT and IN- play it (%.0f Hz)", pad2.hz);
+    run(50);
+    CHECK(on_screen("after Michel Waisvisz") && on_screen("Michel Waisvisz wanted electronic music played with the body."),
+          "TOUCH shows the Crackle Box's history under the board");
     /* saved with the project: the knobs, and the TOUCH channel in the mixer's new chunk; a 2.1 project still loads */
     static uint8_t blob[PROJECT_MAX];
     touch.knob[TK_RANGE] = 77; touch.hum60 = true; mix.ch[CH_TOUCH].db = -12; mix.ch[CH_TOUCH].reverb = 33;
@@ -1416,19 +1905,20 @@ static void touch_checks(void) {
 static void pad_checks(void) {
     printf("touchpad\n");
     to_play(); host_tap(KEY_ESC); run(300);
-    host_key('4', true); run(50);                                       /* hold C major */
+    host_key('6', true); run(50);                                       /* hold C major */
     int hits = 0;
+    memset(omni.zone_hit_ms, 0, sizeof omni.zone_hit_ms);
     for (int i = 0; i <= 40; i++) { host_touch(i * 32767 / 40, 20000, 90); run(12); }
-    for (int r = 0; r < 2; r++) for (int z = 0; z < OMNI_ZONES; z++) if (omni.zone_hit_ms[r][z] && omni_zone_keys[r][z] != ' ') hits++;
-    CHECK(hits >= 20, "PLAY: a finger across the pad strums every zone, low to high (%d of 21)", hits);
+    for (int z = 0; z < OMNI_ZONES; z++) if (omni.zone_hit_ms[z]) hits++;
+    CHECK(hits == OMNI_ZONES, "PLAY: a finger across the pad strums every string, low to high (%d of %d)", hits, OMNI_ZONES);
     host_touch(0, 0, 0); run(50);
     memset(omni.zone_hit_ms, 0, sizeof omni.zone_hit_ms); hits = 0;   /* two fingers at once, from both ends to the middle */
     for (int i = 0; i <= 20; i++) { host_finger(0, i * 16300 / 20, 20000, 90, 0); host_finger(1, 32767 - i * 16300 / 20, 20000, 90, 0); run(12); }
-    for (int r = 0; r < 2; r++) for (int z = 0; z < OMNI_ZONES; z++) if (omni.zone_hit_ms[r][z] && omni_zone_keys[r][z] != ' ') hits++;
+    for (int z = 0; z < OMNI_ZONES; z++) if (omni.zone_hit_ms[z]) hits++;
     int held = pad.n;
     host_finger(0, 0, 0, 0, 0); host_finger(1, 0, 0, 0, 0); run(50);
-    CHECK(hits >= 20 && held == 2 && pad.n == 0, "two fingers at once, one from each end: every zone strummed (%d of 21)", hits);
-    host_key('4', false); host_tap(KEY_ESC); run(200);
+    CHECK(hits == OMNI_ZONES && held == 2 && pad.n == 0, "two fingers at once, one from each end: every string strummed (%d of %d)", hits, OMNI_ZONES);
+    host_key('6', false); host_tap(KEY_ESC); run(200);
     host_tap(KEY_F2); run(30);
     int x0 = ptr.x;
     for (int i = 0; i <= 10; i++) { host_touch(8000 + i * 1000, 16000, 80); run(12); }
@@ -1597,6 +2087,7 @@ static int count_lit(void) { int n = 0; for (int i = 0; i < ANS_ROWS * ANS_COLS;
 static void ans_checks(void) {
     printf("ans\n");
     to_play(); run(50); host_key(KEY_LCTRL, true); host_tap('-'); host_key(KEY_LCTRL, false); run(100);
+    lineage_goto(LV_ANS); run(30);                                  /* F11 comes back to where LINEAGE was left */
     HOST_SET_ECHO(false);
     uint8_t bars = ans.bars; ans.octave = 2; ans.bars = 4;
     ans_clear(); ans.playing = true; ans.seek = 1; run(300);
@@ -1644,6 +2135,17 @@ static void ans_checks(void) {
         CHECK(back && lit == ANS_COLS * 1 && at, "the plate is kept in a project (%d cells back)", lit);
         disk_delete_slot(s);
     }
+    /* INSERT: a drone after Coil's ANS — its weight low on the plate, a few scratches high up, two minutes a pass; undone */
+    host_tap(KEY_F11); run(40); lineage_goto(LV_ANS); run(40);
+    ans_clear(); run(40);
+    host_tap(KEY_INSERT); run(40);
+    long low = 0, high = 0;
+    for (int c = 0; c < ANS_COLS; c++) for (int r = 0; r < ANS_ROWS; r++) { int v = ans.plate[c * ANS_ROWS + r]; if (r < 108) low += v; else high += v; }
+    bool drone = low > high * 4 && high > 0 && !ans.bars && ans.seconds == 120 && ans_frames_per_pass() == 120u * 48000;
+    host_key(KEY_LCTRL, true); host_tap('z'); host_key(KEY_LCTRL, false); run(40);
+    bool undone = count_lit() == 0;
+    ans.seconds = 240; bool four = ans_frames_per_pass() == 240u * 48000;
+    CHECK(drone && undone && four, "INSERT: a drone after Coil's ANS, its weight low (%ld against %ld above), 2 minutes a pass; undone; 4-minute passes", low, high);
     ans_clear(); ans.bars = bars; HOST_SET_ECHO(true); to_play(); run(50);
 }
 
@@ -1721,7 +2223,7 @@ static void sieve_checks(void) {
     uint16_t bpm = seq.bpm; seq.bpm = 60;
     char keep[SIEVE_TEXT]; memcpy(keep, sieves[0].text, SIEVE_TEXT);
     snprintf(sieves[0].text, SIEVE_TEXT, "3@0"); sieve_compile(&sieves[0]);
-    rhythm.pattern = RHYTHM_SIEVE; rhythm.bass = false; rhythm.mute = 6;
+    rhythm_select(RHYTHM_SIEVE); omni.autoplay = false; rhythm.mute = 6;
     HOST_SET_ECHO(false); run(300);
     host_wav_open("/tmp/hb-check-sieve.wav");
     rhythm_play(true); run_capture(6000); rhythm_play(false);
@@ -1733,7 +2235,7 @@ static void sieve_checks(void) {
     double worst = 0;
     for (int i = 1; i < no; i++) worst = fmax(worst, fabs(on[i] - on[i - 1] - 0.75));
     CHECK(no >= 7 && worst < 0.001, "the SIEVE pattern plays S1 = 3@0 on the kick: %d kicks, every third sixteenth (worst %.2f ms off)", no, worst * 1000);
-    seq.bpm = bpm; rhythm.bass = true; rhythm.mute = 0; rhythm.pattern = 0; HOST_SET_ECHO(true);
+    seq.bpm = bpm; omni.autoplay = true; rhythm.mute = 0; rhythm_select(0); HOST_SET_ECHO(true);
     memcpy(sieves[0].text, keep, SIEVE_TEXT); sieve_compile(&sieves[0]);
     /* on the view (F12 again steps to it): S1, Enter, 5, ⇧2 (@), 1, ⇧\ (|), 7, Enter */
     host_tap(KEY_F12); run(50);
@@ -1820,9 +2322,9 @@ static void cloud_checks(void) {
     host_tap('1'); run(300); bool on1 = clouds[0].on;
     host_tap('0'); run(100); bool off0 = !clouds[0].on;
     int w = clouds[0].high - clouds[0].low;
-    ui_pages[PAGE_XEN]->midi(90, 100, host_now_ms); run(300);
+    ui_pages[PAGE_LINEAGE]->midi(90, 100, host_now_ms); run(300);
     bool centred = clouds[0].on && clouds[0].low + w / 2 == 90;
-    ui_pages[PAGE_XEN]->midi(90, 0, host_now_ms); run(100);
+    ui_pages[PAGE_LINEAGE]->midi(90, 0, host_now_ms); run(100);
     CHECK(xen_current() == XV_CLOUDS && on1 && off0 && centred && !clouds[0].on, "the view: 1 plays cloud A, 0 stops it; a MIDI note plays it around F#6 while held");
     static uint8_t blob[PROJECT_MAX];
     clouds[2].density = 33; clouds[2].sound = P_GD2; clouds[2].on = true;
@@ -2072,6 +2574,36 @@ static const uint8_t mus_score[] = {
     0x9F, 36 | 0x80, 110, 70,     /* play a kick (36) on the drum channel, then 70 ticks */
     0x00, 60,                     /* release C4 */
     0x60 };                       /* the end of the score */
+/* a MUS song written byte by byte for the tracker's import (core/doomtrack.c): a riff of 16 notes on channel 0 (GM 30,
+   a distorted guitar), 19 ticks apart (a 16th at 110 BPM), a chord on its first note and the fifth note half a row late;
+   a bass on channel 2 (GM 34) */
+static uint8_t mus_riff[512]; static int mus_len;
+static void mus_ev(int type, int ch, int a, int b, int delay) {
+    mus_riff[mus_len++] = (uint8_t)((delay ? 0x80 : 0) | type << 4 | ch);
+    mus_riff[mus_len++] = (uint8_t)a;
+    if (b >= 0) mus_riff[mus_len++] = (uint8_t)b;
+    if (delay) { uint8_t t[4]; int k = 0; do { t[k++] = (uint8_t)(delay & 127); delay >>= 7; } while (delay); while (k--) mus_riff[mus_len++] = (uint8_t)(t[k] | (k ? 0x80 : 0)); }
+}
+static const int riff_keys[16] = { 40, 40, 52, 40, 40, 40, 50, 40, 40, 48, 40, 40, 46, 40, 47, 48 };
+static void make_mus_riff(void) {
+    mus_len = 16;
+    mus_ev(4, 0, 0, 30, 0); mus_ev(4, 2, 0, 34, 0);                       /* programs */
+    /* the events in time order, each group's last one carrying the delay to the next */
+    struct { int t, type, ch, a, b; } e[80]; int n = 0;
+    for (int i = 0; i < 16; i++) {
+        int on = i * 19 + (i == 4 ? 9 : 0), off = i * 19 + 17;
+        e[n++] = (typeof(e[0])){ on, 1, 0, riff_keys[i] | 0x80, 110 };
+        e[n++] = (typeof(e[0])){ off, 0, 0, riff_keys[i], -1 };
+        if (i == 0) { e[n++] = (typeof(e[0])){ 0, 1, 0, 47 | 0x80, 105 }; e[n++] = (typeof(e[0])){ 10, 0, 0, 47, -1 }; }   /* the chord */
+        if (i % 8 == 0) { e[n++] = (typeof(e[0])){ on, 1, 2, 28 | 0x80, 100 }; e[n++] = (typeof(e[0])){ on + 4 * 19 - 2, 0, 2, 28, -1 }; }
+    }
+    for (int i = 1; i < n; i++) { typeof(e[0]) x = e[i]; int j = i - 1; while (j >= 0 && e[j].t > x.t) { e[j + 1] = e[j]; j--; } e[j + 1] = x; }
+    for (int i = 0; i < n; i++) mus_ev(e[i].type, e[i].ch, e[i].a, e[i].b, i + 1 < n ? e[i + 1].t - e[i].t : 0);
+    mus_riff[mus_len++] = 0x60;                                           /* the end of the score */
+    static const uint8_t hdr[16] = { 'M', 'U', 'S', 0x1A, 0, 0, 16, 0, 2, 0, 0, 0, 0, 0, 0, 0 };
+    memcpy(mus_riff, hdr, 16); mus_riff[4] = (uint8_t)(mus_len - 16); mus_riff[5] = (uint8_t)((mus_len - 16) >> 8);
+}
+
 static void doom_checks(void) {
     printf("doom\n");
     to_play(); host_tap(KEY_ESC); run(300);
@@ -2084,6 +2616,20 @@ static void doom_checks(void) {
     run(900);
     CHECK(loaded && during == 2 && !doomsnd_music_playing() && synth_active_voices() == before,
           "a MUS score plays on BARE!'s voices (%d sounding: the organ and the kick) and ends", during);
+    /* the tracker's import: a MUS riff as the breakcore song — on the grid, its chord split, the late note delayed */
+    make_mus_riff();
+    char tm[96]; bool arranged = doomtrack_arrange(mus_riff, (uint32_t)mus_len, "TEST BREAKCORE", tm, sizeof tm);
+    bool grid = true; for (int i = 0; i < 16; i++) grid = grid && seq_pat[1].cell[i][0].note == riff_keys[i];
+    struct seq_cell late = seq_pat[1].cell[4][0];
+    CHECK(arranged && seq.bpm == 172 && !strcmp(seq.title, "TEST BREAKCORE") && seq.song_len == 4 && grid &&
+          seq_pat[1].cell[0][1].note == 47 && seq_pat[1].cell[0][3].note == 28 && seq_pat[1].cell[8][3].note == 28 &&
+          late.fx == 0xE && (late.param == 0xD7 || late.param == 0xD8) && seq_pat[0].cell[0][4].note && seq_pat[1].cell[0][4].note,
+          "a MUS riff into the tracker: 16 notes on 16 rows at 172 BPM, the chord's B2 on GTR2, the bass on BASS, the late "
+          "note waits (ED7-8: 9 ticks of 19), breaks under it (%s)", tm);
+    HOST_SET_ECHO(false);
+    seq_play(true); run(300); struct heard br = listen(700); seq_play(false); run(300);
+    CHECK(br.rms > 300, "and it plays (rms %.0f)", br.rms);
+    HOST_SET_ECHO(true); seq_load_demo(0);
     uint32_t bg = gfx_rgb(C_BG);
     if (!doom_memory()) {
         type_slowly("iddqd"); run(100);
@@ -2105,6 +2651,12 @@ static void doom_checks(void) {
     put = got == (size_t)n && put_file("DOOM.WAD", wad, (uint32_t)n);
     static uint8_t pal[768]; const uint8_t *pp = wad_lump(wad, n, "PLAYPAL"); if (pp) memcpy(pal, pp, 768);
     free(wad);
+    /* SEQ's ⇧4: the WAD's E1M1 (Freedoom's is a MIDI file) read off the stick, as the breakcore song */
+    host_tap(KEY_F2); run(100); host_shift_tap('4'); run(300);
+    int used = 0; for (int p = 1; p < SEQ_PATTERNS; p++) used += seq_pattern_used(p);
+    CHECK(put && !strcmp(seq.title, "E1M1 BREAKCORE") && seq.playing && seq.song_len > 4 && used > 400,
+          "SEQ ⇧4: E1M1 from the stick's WAD as a breakcore song (%d orders, %d cells)", seq.song_len, used);
+    seq_play(false); seq_load_demo(0); to_play(); run(300);
     type_slowly("iddqd"); run(3000);
     CHECK(put && doom_showing() && gametic >= 80, "iddqd starts Doom afresh after the error: %d tics in its first 3 s", gametic);
     int same = 0; const uint8_t *g = gammatable[0];              /* the engine's gamma table: its level 0 adds one */
@@ -2145,6 +2697,12 @@ static void doom_checks(void) {
     bool back = doom_showing() && menuactive;
     host_tap('l'); run(150); host_tap(KEY_ENTER); run(300); host_tap(KEY_ENTER); run(2000);   /* L: Load Game */
     CHECK(back && gamestate == 0 && usergame && !menuactive, "back in, at its menu; the saved game loads from the stick");
+    fkeys[2] = (struct fkey){ .kind = FK_OFF, .left_at = -1 };            /* F3 opens nothing in BARE!: Doom's own */
+    host_tap(KEY_F3); run(300);
+    bool f3 = doom_showing() && menuactive;
+    for (int i = 0; i < 3 && menuactive; i++) { host_tap(KEY_ESC); run(200); }
+    fkeys_default(fkeys);
+    CHECK(f3 && doom_showing() && !menuactive, "an F key that opens nothing in BARE! is Doom's own: F3, its Load Game");
     host_tap(KEY_F7); run(300);
     CHECK(!doom_showing() && app_page() == PAGE_FILE, "F7 leaves it for FILE");
 }
@@ -2197,12 +2755,232 @@ static void splash_checks(void) {
     run(100);
 }
 
+/* the pointer at a cell's middle; a tab's text as the title bar shows it */
+static void point_at(int cx, int cy, int buttons) {
+    int px = text_px(cx) + text_font()->width / 2, py = text_py(cy) + text_font()->height / 2;
+    host_pointer(px * 32768 / gfx_width(), py * 32768 / gfx_height(), buttons);
+}
+static void tab_text(int k, char *out, int cap) {
+    int x, w, n = 0;
+    if (ui_tab(k, &x, &w)) for (int c = x; c < x + w && n < cap - 1; c++) out[n++] = (char)text_peek(c, 0);
+    out[n] = 0;
+}
+static bool same_but_instruments(const char *a, const char *b) {      /* two KEYS.TXT headers, the instrument list aside */
+    static const char skip[] = "#   an instrument:";
+    for (;;) {
+        while (!strncmp(a, skip, sizeof skip - 1)) { a = strchr(a, '\n'); if (!a) return false; a++; }
+        while (!strncmp(b, skip, sizeof skip - 1)) { b = strchr(b, '\n'); if (!b) return false; b++; }
+        const char *ea = strchr(a, '\n'), *eb = strchr(b, '\n');
+        if (!ea || !eb) return !ea && !eb && !strcmp(a, b);
+        if (ea - a != eb - b || strncmp(a, b, (size_t)(ea - a))) return false;
+        a = ea + 1; b = eb + 1;
+    }
+}
+static void fkeys_checks(void) {
+    printf("F keys\n");
+    to_play(); host_tap(KEY_ESC); run(100);
+    fkeys_default(fkeys);
+    if (disk.have_boot_fat) {                                  /* a new stick's KEYS.TXT (tools/mkimage.py) */
+        struct fat_file ff; static char stick[2048], ours[2048]; int n = 0;
+        if (fat_find(&disk.fat, "KEYS.TXT", &ff)) { n = (int)MIN(ff.size, (uint32_t)sizeof stick - 1); fat_read(&disk.fat, &ff, 0, stick, (uint32_t)n); }
+        stick[n] = 0;
+        fkeys_text(ours, sizeof ours);
+        struct fkey k0[FKEYS], d0[FKEYS]; char e0[80];
+        int bad0 = fkeys_parse(stick, n, k0, e0, sizeof e0); fkeys_default(d0);
+        bool dflt = true; for (int i = 0; i < FKEYS; i++) dflt = dflt && fkey_same(&k0[i], &d0[i]);
+        CHECK(n > 0 && !bad0 && dflt && same_but_instruments(stick, ours), "a new stick's KEYS.TXT: comments only, the default keys, the header BARE! writes (%d bytes)", n);
+    }
+    /* the default: the eleven pages in order, then F12 XENAKIS inside LINEAGE */
+    bool all = true, ctrl_ok = true;
+    for (int k = FKEYS - 1; k >= 0; k--) { host_tap((uint8_t)(KEY_F1 + k)); run(40); all = all && (k < PAGE_COUNT ? app_page() == k : on_xen()) && app_key() == k; }
+    static const uint8_t ctl[FKEYS] = { '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=' };
+    for (int k = 1; k < FKEYS; k++) { host_key(KEY_LCTRL, true); host_tap(ctl[k]); host_key(KEY_LCTRL, false); run(40); ctrl_ok = ctrl_ok && (k < PAGE_COUNT ? app_page() == k : on_xen()); }
+    int shown = 0; for (int k = 0; k < FKEYS; k++) { int x, w; shown += ui_tab(k, &x, &w); }
+    char t12[40]; tab_text(11, t12, sizeof t12);
+    CHECK(all && ctrl_ok && shown == FKEYS && strstr(t12, "XENAKIS"),
+          "the default keys: F1 … F11 open the eleven pages, F12 LINEAGE's XENAKIS (its tab says XENAKIS); Ctrl+1 … 0 - = the same");
+    /* KEYS.TXT: a line a key, any case, CRLF, colons or =, comments; mistakes with their line; the rest default */
+    static const char text[] = "# my set\r\nf2: shruti\r\nF3 = upic\r\nF6 off\r\nF13 TAPE\r\nF4 NOPE\r\nF9   cloud   # one of them\r\n";
+    struct fkey k[FKEYS]; char err[80];
+    int bad = fkeys_parse(text, (int)sizeof text - 1, k, err, sizeof err);
+    CHECK(bad == 2 && strstr(err, "line 5") && k[1].kind == FK_INST && !strcmp(k[1].inst, "SHRUTI") && k[2].kind == FK_VIEW && k[2].view == LV_XEN &&
+          k[2].sub == XV_UPIC + 1 && k[5].kind == FK_OFF && k[8].kind == FK_VIEW && k[8].view == LV_XEN && k[8].sub == XV_CLOUDS + 1 && k[3].kind == FK_PAGE &&
+          k[3].page == PAGE_STRETCH && k[11].kind == FK_VIEW && k[11].page == PAGE_LINEAGE && k[11].view == LV_XEN && !k[11].sub,
+          "KEYS.TXT: F2 SHRUTI, F3 UPIC, F6 off, F9 CLOUDS, any case; 2 mistakes, the first said with its line (%s); the rest default", err);
+    static const char no_file[] = "F7 off\n";
+    int bad2 = fkeys_parse(no_file, (int)sizeof no_file - 1, k, err, sizeof err);
+    CHECK(bad2 == 1 && fkey_page(&k[6]) == PAGE_FILE, "FILE turned off in the file stays on F7 (%s)", err);
+    /* the LINEAGE views are places too: named in the file, each a key; every place maps back to itself */
+    static const char lin[] = "F9 REICH\nF10 ans\nF4 MERZBOW\n";
+    int bad3 = fkeys_parse(lin, (int)sizeof lin - 1, k, err, sizeof err);
+    bool views_ok = !bad3 && k[8].kind == FK_VIEW && k[8].page == PAGE_LINEAGE && k[8].view == LV_REICH && k[9].kind == FK_VIEW && k[9].view == LV_ANS &&
+                    k[3].page == PAGE_LINEAGE && k[3].view == LV_MERZBOW && !strcmp(fkey_label(&k[8]), "REICH") && fkey_page(&k[9]) == PAGE_LINEAGE;
+    bool round = true;
+    for (int i = 0; i < fkeys_places(); i++) { struct fkey f; fkeys_place(i, &f); round = round && fkeys_place_of(&f) == i; }
+    CHECK(views_ok && round, "KEYS.TXT: F9 REICH, F10 ANS, F4 MERZBOW open LINEAGE's views; all %d places map back to themselves", fkeys_places());
+    static const char older[] = "F5 xenakis\nF6 XEN\nF8 metastaseis\n";          /* a 2.6 stick's, when XENAKIS was a page */
+    int bad4 = fkeys_parse(older, (int)sizeof older - 1, k, err, sizeof err);
+    CHECK(!bad4 && k[4].kind == FK_VIEW && k[4].view == LV_XEN && !k[4].sub && fkey_same(&k[4], &k[5]) && k[7].view == LV_XEN && k[7].sub == XV_META + 1 &&
+          !strcmp(fkey_label(&k[4]), "XENAKIS") && !strcmp(fkey_label(&k[7]), "METASTASEIS"),
+          "KEYS.TXT from when XENAKIS was a page: XENAKIS and XEN open it inside LINEAGE, METASTASEIS its first view");
+    /* F11 opens LINEAGE on ANS; again, the next lineage; a key naming a view opens it */
+    fkeys_default(fkeys);
+    host_tap(KEY_F11); run(40);
+    bool ans = app_page() == PAGE_LINEAGE && lineage_current() == LV_ANS;
+    host_tap(KEY_F11); run(40);
+    bool reich = app_page() == PAGE_LINEAGE && lineage_current() == LV_REICH;
+    fkeys_parse(lin, (int)sizeof lin - 1, fkeys, err, sizeof err);
+    host_tap(KEY_F4); run(40);
+    bool merz = app_page() == PAGE_LINEAGE && lineage_current() == LV_MERZBOW && app_key() == 3;
+    fkeys_default(fkeys); host_tap(KEY_F12); run(40);
+    CHECK(ans && reich && merz, "F11 opens LINEAGE on ANS, F11 again REICH; F4 set to MERZBOW opens that view");
+    /* that layout played: each key keeps its own place in PLAY */
+    fkeys_parse(text, (int)sizeof text - 1, fkeys, err, sizeof err);
+    host_tap(KEY_F1); run(40);
+    bool omni = app_page() == PAGE_PLAY && play_showing() == 0;
+    host_tap(KEY_F1); run(40);
+    int stepped = play_showing(), sh = -1;
+    for (int i = 0; i < inst_count; i++) if (!strcmp(insts[i].name, "SHRUTI")) sh = i;
+    host_tap(KEY_F2); run(40);
+    bool shruti = app_page() == PAGE_PLAY && app_key() == 1 && play_showing() == sh + 1;
+    char t2[40]; tab_text(1, t2, sizeof t2);
+    host_tap(KEY_F1); run(40);
+    bool back = app_key() == 0 && play_showing() == stepped;
+    host_tap(KEY_F3); run(40);
+    bool upic = on_xen() && xen_current() == XV_UPIC;
+    host_tap(KEY_F3); run(40);
+    bool next = xen_current() == XV_GENDY;
+    host_tap(KEY_F6); run(40);
+    int x, w; bool off = on_xen() && app_key() == 2 && !ui_tab(5, &x, &w);
+    CHECK(omni && stepped >= 1 && sh >= 0 && shruti && strstr(t2, "SHRUTI") && back && upic && next && off,
+          "F1 PLAY, again an instrument; F2 SHRUTI (its tab says so); F1 back where it was; F3 UPIC, again GENDY; F6 opens nothing, no tab");
+    fkeys[3] = (struct fkey){ .kind = FK_INST, .inst = "GHOST", .left_at = -1 };
+    host_tap(KEY_F4); run(40);
+    CHECK(on_xen() && app_key() == 2, "a key naming an instrument this stick doesn't have: a notice, nothing moves");
+    fkeys[3] = (struct fkey){ .kind = FK_PAGE, .page = PAGE_STRETCH, .left_at = -1 };
+    /* kept on the stick, only what differs from the default, and read back the same */
+    if (disk.have_boot_fat) {
+        fkeys_changed(host_now_ms); run(1200);
+        struct fat_file ff; static char buf[2048]; int n = 0;
+        if (fat_find(&disk.fat, "KEYS.TXT", &ff)) { n = (int)MIN(ff.size, (uint32_t)sizeof buf - 1); fat_read(&disk.fat, &ff, 0, buf, (uint32_t)n); }
+        buf[n] = 0;
+        struct fkey was[FKEYS]; memcpy(was, fkeys, sizeof was);
+        fkeys_default(fkeys); fkeys_load();
+        bool same = true; for (int i = 0; i < FKEYS; i++) same = same && fkey_same(&fkeys[i], &was[i]);
+        CHECK(n > 0 && strstr(buf, "F2  SHRUTI\r\n") && strstr(buf, "F6  off") && strstr(buf, "F9  CLOUDS") && !strstr(buf, "\nF1 ") && same && !fkeys_pending(),
+              "written to KEYS.TXT a moment later, only the keys changed (%d bytes); read back, the same keys", n);
+    }
+    /* the KEYS view */
+    fkeys_default(fkeys);
+    file_show_keys(); host_tap(KEY_F7); run(40);
+    for (int i = 0; i < FKEYS; i++) host_tap(KEY_UP);
+    for (int i = 0; i < 8; i++) host_tap(KEY_DOWN);
+    host_tap(KEY_RIGHT); run(40);                                             /* F9 TOUCH → FX */
+    bool right = fkeys[8].kind == FK_PAGE && fkeys[8].page == PAGE_FX;
+    host_tap(KEY_LEFT); host_tap(KEY_LEFT); run(40);                          /* → MIX */
+    bool left = fkeys[8].kind == FK_PAGE && fkeys[8].page == PAGE_MIX;
+    host_tap(KEY_DELETE); run(40);
+    bool deleted = fkeys[8].kind == FK_OFF;
+    host_tap(KEY_SPACE); host_tap(KEY_UP); host_tap(KEY_SPACE); run(40);      /* F9 (off) carried up: F8 and F9 swap */
+    bool carried = fkeys[7].kind == FK_OFF && fkeys[8].kind == FK_PAGE && fkeys[8].page == PAGE_MIX;
+    host_tap(KEY_UP); host_tap(KEY_DELETE); host_tap(KEY_RIGHT); run(40);     /* F7, FILE's only key */
+    bool file_stays = fkeys[6].kind == FK_PAGE && fkeys[6].page == PAGE_FILE;
+    host_tap('r'); host_tap('n'); run(40);
+    bool kept = fkeys[7].kind == FK_OFF;
+    host_tap('r'); host_tap('y'); run(1200);
+    struct fkey d[FKEYS]; fkeys_default(d);
+    bool reset = true; for (int i = 0; i < FKEYS; i++) reset = reset && fkey_same(&fkeys[i], &d[i]);
+    CHECK(right && left && deleted && carried && file_stays && kept && reset && (!disk.have_boot_fat || !strcmp(fkeys_status, "kept in KEYS.TXT on the stick")),
+          "the KEYS view: ← → what a key opens, Del off, Space carries it, FILE stays on a key, R Y the default (%s)", fkeys_status);
+    /* the tabs: dragged onto another they swap, a click opens, dragged onto a free key's place it moves there */
+    host_tap(KEY_F8); run(40);
+    int x1, w1, x5, w5; ui_tab(1, &x1, &w1); ui_tab(4, &x5, &w5);
+    point_at(x1 + 2, 0, 1); run(40); point_at(x1 + 5, 0, 1); run(40); point_at(x5 + 2, 0, 1); run(40); point_at(x5 + 2, 0, 0); run(40);
+    bool swapped = fkeys[1].page == PAGE_FM && fkeys[4].page == PAGE_SEQ;
+    int x9, w9; ui_tab(9, &x9, &w9);
+    point_at(x9 + 2, 0, 1); run(40); point_at(x9 + 2, 0, 0); run(40);
+    bool clicked = app_page() == PAGE_FX && app_key() == 9;
+    fkeys[10] = (struct fkey){ .kind = FK_OFF, .left_at = -1 }; run(40);
+    int x11, w11, x12, w12; bool hidden = !ui_tab(10, &x11, &w11); ui_tab(11, &x12, &w12);
+    point_at(x12 + 2, 0, 1); run(40); point_at(x12 - 2, 0, 1); run(40);
+    bool placeholder = ui_tab(10, &x11, &w11);
+    point_at(x11 + 1, 0, 1); run(40); point_at(x11 + 1, 0, 0); run(40);
+    bool moved = fkeys[10].kind == FK_VIEW && fkeys[10].view == LV_XEN && fkeys[11].kind == FK_OFF;
+    CHECK(swapped && clicked && hidden && placeholder && moved, "tabs: dragged onto another they swap keys, a click opens one, dropped on a free key's place it moves there");
+    /* long names on every key still fit */
+    static const char *const longs[] = { "SIEVHARP", "THEREMIN", "GRIDPADS", "SHRUTI" };
+    for (int i = 0; i < FKEYS; i++) if (i != PAGE_FILE) { fkeys[i] = (struct fkey){ .kind = FK_INST, .left_at = -1 }; snfmt(fkeys[i].inst, sizeof fkeys[i].inst, "%s", longs[i % 4]); }
+    run(40);
+    int end = 0, overlap = 0, tabs = 0;
+    for (int i = 0; i < FKEYS; i++) { int tx, tw; if (!ui_tab(i, &tx, &tw)) continue; tabs++; if (tx < end) overlap++; end = tx + tw; }
+    CHECK(tabs == FKEYS && !overlap && end <= text_cols() - 9, "an instrument on every key: twelve tabs still fit the title bar (%d of %d columns)", end, text_cols());
+    fkeys_default(fkeys); fkeys_changed(host_now_ms); run(1200);
+    to_play(); run(50);
+}
+
+/* a row of the cell grid as text (ASCII; other glyphs as '#'), for reading back what was drawn */
+static void row_text(int x, int y, int w, char *out) {
+    for (int i = 0; i < w; i++) { uint8_t g = text_peek(x + i, y); out[i] = g >= 0x20 && g < 0x7F ? (char)g : '#'; }
+    out[w] = 0;
+    for (int i = w - 1; i >= 0 && out[i] == ' '; i--) out[i] = 0;
+}
 static void ui_checks(void) {
     printf("pages\n");
-    static const uint8_t keys[] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9 };
-    for (unsigned k = 0; k < sizeof keys; k++) { host_tap(keys[k]); host_pointer(12000 + k * 2000, 16000, 1); run(200); host_pointer(12000 + k * 2000, 16000, 0); run(100); }
-    CHECK(true, "every page drawn, pointer pressed on each");
+    for (unsigned k = 0; k < FKEYS; k++) { host_tap((uint8_t)(KEY_F1 + k)); host_pointer(12000 + (int)k * 1500, 16000, 1); run(200); host_pointer(12000 + (int)k * 1500, 16000, 0); run(100); }
+    int views = 0;
+    for (int p = 0; p < 2; p++) {                              /* every view of both pages with views */
+        uint8_t key = p ? KEY_F12 : KEY_F11; int n = p ? XV_COUNT : LV_COUNT;
+        host_tap(key); run(60);
+        for (int v = 0; v < n; v++) { host_tap(key); run(120); views++; }
+    }
+    CHECK(views == XV_COUNT + LV_COUNT, "every page drawn, pointer pressed on each; every LINEAGE view and XENAKIS's own drawn (%d)", views);
+    /* XENAKIS inside LINEAGE: named on LINEAGE's bar (row 1), its own views on the row under it; F12 again steps them,
+       F11 goes round the homages past it, and a click on its bar picks a view */
+    host_tap(KEY_F12); run(60);
+    static char b1[256], b2[256]; row_text(0, 1, text_cols(), b1); row_text(0, 2, text_cols(), b2);
+    bool bars = on_xen() && strstr(b1, "XENAKIS") && strstr(b1, "ANS") && strstr(b1, "MERZBOW") && strstr(b2, "METASTASEIS") && strstr(b2, "GENDY");
+    int was = xen_current(); host_tap(KEY_F12); run(60);
+    bool stepped = on_xen() && xen_current() == (was + 1) % XV_COUNT;
+    host_tap(KEY_F11); run(60);
+    bool ans = app_page() == PAGE_LINEAGE && lineage_current() == LV_ANS;
+    for (int i = 0; i < LV_COUNT - 1; i++) { host_tap(KEY_F11); run(60); }
+    bool round = on_xen();
+    const char *g = strstr(b2, "GENDY"); int gx = g ? (int)(g - b2) : 0;
+    point_at(gx + 1, 2, 1); run(40); point_at(gx + 1, 2, 0); run(60);
+    bool clicked = on_xen() && xen_current() == XV_GENDY;
+    CHECK(bars && stepped && ans && round && clicked, "XENAKIS inside LINEAGE: on its bar, its views on the row under; F12 again the next view, F11 round the homages to it, a click on its bar picks GENDY");
     to_play(); run(50);
+    /* paragraphs: wrapped at the width, cut after the last whole sentence that fits, else with an ellipsis */
+    text_clear(C_BG);
+    int r1 = ui_para(0, 0, 10, 9, "the quick brown fox jumps over", C_TEXT, C_BG);
+    char l0[16], l1[16], l2[16]; row_text(0, 0, 12, l0); row_text(0, 1, 12, l1); row_text(0, 2, 12, l2);
+    bool wrapped = r1 == 3 && !strcmp(l0, "the quick") && !strcmp(l1, "brown fox") && !strcmp(l2, "jumps over");
+    text_clear(C_BG);
+    int r2 = ui_para(0, 0, 12, 2, "One two. Three four five six seven eight.", C_TEXT, C_BG);
+    row_text(0, 0, 14, l0); row_text(0, 1, 14, l1);
+    bool sentence = r2 == 1 && !strcmp(l0, "One two.") && !l1[0];
+    text_clear(C_BG);
+    int r3 = ui_para(0, 0, 8, 1, "Éliane b. 1932 went on and on", C_TEXT, C_BG);
+    row_text(0, 0, 10, l0);
+    bool dots = r3 == 1 && text_peek(0, 0) == 0xDF && text_peek(6, 0) == 0xC1 && !strncmp(l0 + 1, "liane", 5);
+    text_clear(C_BG);
+    int r4 = ui_para(0, 0, 20, 5, "one\n\ntwo", C_TEXT, C_BG), r5 = ui_para(0, -1, 4, 9, "abcdefghij", 0, 0);
+    row_text(0, 2, 10, l2);
+    bool breaks = r4 == 3 && !strcmp(l2, "two") && r5 == 3;
+    CHECK(wrapped && sentence && dots && breaks, "paragraphs: wrapped at the width, cut at a sentence's end (not after \"b.\"), É one cell, … when nothing whole fits, \\n and long words");
+    /* every lesson panel draws inside its rectangle, at 100 and 160 columns' worth */
+    static const struct lesson *const lessons[] = { &lesson_ans, &lesson_meta, &lesson_upic, &lesson_reich, &lesson_carlos,
+                                                    &lesson_radigue, &lesson_merzbow, &lesson_touch };
+    bool inside = true;
+    for (int k = 0; k < (int)ARRAY_LEN(lessons); k++)
+        for (int w = 60; w <= 156; w += 96) {
+            text_clear(C_BG);
+            ui_lesson(2, 5, w, 9, lessons[k]);
+            for (int y = 0; y < text_rows(); y++) for (int x = 0; x < text_cols(); x++)
+                if (text_peek(x, y) != ' ' && (x < 2 || x >= 2 + w || y < 5 || y >= 14)) inside = false;
+        }
+    CHECK(inside, "every lesson panel stays inside its rectangle, stacked or in two columns");
+    ui_redraw_all(); run(50);
 }
 
 /* CHECKS=usb,undo runs only those groups (the names below); without it, all of them */
@@ -2246,6 +3024,10 @@ int main(int argc, char **argv) {
     if (image && want("update")) update_checks();
     if (image && want("install")) install_checks();
     if (want("rhythm")) rhythm_checks();
+    if (want("omni")) omni_checks();
+    if (want("harmony")) harmony_checks();
+    if (want("meta")) meta_checks();
+    if (want("lineage")) lineage_checks();
     if (want("layers")) layer_checks();
     if (want("pad")) pad_checks();
     if (want("touch")) touch_checks();
@@ -2254,6 +3036,7 @@ int main(int argc, char **argv) {
     if (want("ans")) ans_checks();
     if (want("xen")) { gendy_checks(); sieve_checks(); cloud_checks(); upic_checks(); }
     if (want("inst")) inst_checks();
+    if (want("fkeys")) fkeys_checks();
     if (image && want("doom")) doom_checks();
     if (want("splash")) splash_checks();
     if (want("ui")) ui_checks();

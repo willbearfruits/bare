@@ -1,6 +1,8 @@
 /* TOUCH: the circuit board of core/touch.c, played with the touchpad (every finger), the mouse, the keys A S D F /
-   Z X C V (a finger on each pad; the longer a key is held, the harder it presses) or MIDI notes. */
+   Z X C V (a finger on each pad; the longer a key is held, the harder it presses) or MIDI notes. Under it, the short
+   history of the Crackle Box (core/lessons.c), as the LINEAGE views have theirs. */
 #include "ui.h"
+#include "lessons.h"
 #include "gfx.h"
 #include "keys.h"
 #include "touch.h"
@@ -155,7 +157,8 @@ static void knobs(int x, int y, int w) {
 static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
-    int sw = 30, x = 2, y = 2, w = cols - 4 - sw - 1, sh = 6, h = rows - y - sh - 3;
+    int hh = ui_lesson_rows(), hy = rows - 1 - hh;                     /* the history band, just above the footer */
+    int sw = 30, x = 2, y = 2, w = cols - 4 - sw - 1, sh = rows >= 45 ? 6 : 4, h = hy - y - sh - 1;
     ui_panel(x, y, w, h, "BOARD · two pads at once: your body closes the circuit", C_AMBER);
     uint32_t key = ui_hash_int(UI_HASH0, cols << 16 | rows);          /* the picture: redrawn when something in it moves */
     for (int k = 0; k < TOUCH_FINGERS; k++) {
@@ -186,8 +189,9 @@ static void draw(uint64_t now) {
     int sy = y + h + 1;
     ui_panel(x, sy, cols - 4, sh, "OUT", C_SCOPE);
     ui_scope(x + 1, sy + 1, cols - 6, sh - 2);
+    ui_lesson(x, hy, cols - 4, hh, &lesson_touch);
     FOOTER("A S D F", "top pads", "Z X C V", "bottom pads", "↑ ↓", "knob", "← →", "turn it", "TAB", "50/60 Hz", "SPACE", "hold",
            "", "a key pressed longer presses harder; ⇧ presses hard at once");
 }
 
-const struct page page_touch = { "TOUCH", "F9", KEY_F9, false, key, 0, pointer, 0, draw, true, midi };
+const struct page page_touch = { "TOUCH", false, key, 0, pointer, 0, draw, true, midi };

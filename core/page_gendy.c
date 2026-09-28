@@ -4,6 +4,7 @@
    against; the touchpad, or the mouse on the picture, sets the walk's two step sizes (across: the heights'; up: the
    lengths'), so a held note can be calmed or stirred by hand. */
 #include "xen.h"
+#include "harmony.h"
 #include "gendy.h"
 #include "synth.h"
 #include "gfx.h"
@@ -73,9 +74,9 @@ static void knob_text(int k, char *out, int cap) {
 }
 
 static int preset(void) { return P_GD1 + patch; }
-static void note(int n, uint8_t vel, bool on) {
+static void note(int n, uint8_t vel, bool on) {                  /* the key's tag is its own note, whatever it plays */
     if (n < 0 || n > 127) return;
-    if (on) synth_note_on((uint8_t)n, vel, (uint8_t)preset(), (uint16_t)(TAG_KEYS | n));
+    if (on) synth_note_on((uint8_t)harmony_note(n), vel, (uint8_t)preset(), (uint16_t)(TAG_KEYS | n));
     else synth_note_off_tag((uint16_t)(TAG_KEYS | n));
 }
 static void edit(uint64_t now) { char w[24]; snfmt(w, sizeof w, "GENDY patch %d", patch + 1); undo_one(U_GENDY, patch, w, now); }
@@ -145,7 +146,7 @@ static void walk_picture(void) {
 static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
-    int sw = 30, x = 2, y = 2, pw = cols - 4 - sw - 1, ph = rows - y - 3;
+    int sw = 30, x = 2, y = XEN_TOP, pw = cols - 4 - sw - 1, ph = rows - y - 3;
     const struct gendy_patch *p = P();
     char t[64]; snfmt(t, sizeof t, "GENDY %d · %s · %d points", patch + 1, p->name, p->points);
     ui_panel(x, y, pw, ph, t, C_AMBER);
@@ -205,4 +206,4 @@ static void draw(uint64_t now) {
            "", "the touchpad: the walk's steps");
 }
 
-const struct xen_view xen_gendy = { "GENDY", key, typing, pointer, draw, midi };
+const struct view xen_gendy = { "GENDY", key, typing, pointer, draw, midi, "1991" };

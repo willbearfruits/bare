@@ -7,6 +7,7 @@
 #include "seq.h"
 #include "tables.h"
 #include "keys.h"
+#include "fkeys.h"
 #include "undo.h"
 
 static bool confirm_erase; static char msg[48]; static uint64_t msg_ms;
@@ -308,7 +309,7 @@ static void draw(uint64_t now) {
     ui_panel(x, 1, w, th, "TAPE · 8 TRACK", C_AMBER);
     if (!tape.len) {
         text_str(x + 2, 2, "no memory for a tape on this machine", C_RED, C_PANEL);
-        FOOTER("", "the tape needs a few MiB of RAM", "F1", "play page");
+        FOOTER("", "the tape needs a few MiB of RAM", fkeys_page_key(PAGE_PLAY), "play page");
         return;
     }
     uint32_t rate = tape_rate();
@@ -390,4 +391,4 @@ static void draw(uint64_t now) {
            "⇧D", "erase region", "E E", "erase track", "⇧, ⇧.", "low", "⇧; ⇧'", "high", "T", "bounce", "Y", "hiss", "U", "wow", "I O P", "speed");
 }
 
-const struct page page_tape = { "TAPE", "F6", KEY_F6, true, key, 0, pointer, 0, draw };
+const struct page page_tape = { "TAPE", true, key, 0, pointer, 0, draw };

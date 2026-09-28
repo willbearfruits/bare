@@ -147,7 +147,7 @@ static void note_name(int32_t q8, char *out, int cap) {
 static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
-    int sw = 34, x = 2, y = 2, pw = cols - 4 - sw - 1, ph = rows - y - 3;
+    int sw = 34, x = 2, y = XEN_TOP, pw = cols - 4 - sw - 1, ph = rows - y - 3;
     ui_panel(x, y, pw, ph, "SIEVES · read as sixteenths", C_AMBER);
     int bh = MAX(4, (ph - 2) / SIEVES);
     for (int i = 0; i < SIEVES; i++) {
@@ -204,4 +204,4 @@ static void draw(uint64_t now) {
                 "HOME END", "sound", "PGUP PGDN", "octave");
 }
 
-const struct xen_view xen_sieve = { "SIEVES", key, typing, 0, draw, midi };
+const struct view xen_sieve = { "SIEVES", key, typing, 0, draw, midi, "1966" };

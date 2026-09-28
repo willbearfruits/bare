@@ -1,22 +1,26 @@
-/* ANS (F11): the plate of core/ans.c. Draw on it — every finger on the touchpad scratches (pressing harder, brighter,
+/* ANS, LINEAGE's first view (F11): the plate of core/ans.c, after Evgeny Murzin's synthesizer (its history below). Draw on it — every finger on the touchpad scratches (pressing harder, brighter,
    where the pad can tell), the mouse draws and its right button erases — or draw straight glissandi with the line tool;
    put the camera's picture on it (Enter), or let the camera be the plate (\). Space plays: the slit crosses it in the
    pass's bars and loops. The letter rows are a keyboard of its tones: held while it plays, a key writes its row under
    the slit. The picture is redrawn by columns: those drawn on, and those the slit leaves and reaches. */
 #include "ui.h"
+#include "harmony.h"
 #include "gfx.h"
 #include "keys.h"
 #include "ans.h"
 #include "undo.h"
 #include "platform.h"
 #include "disk.h"
+#include "lineage.h"
+#include "lessons.h"
+#include "tables.h"
 
 enum { T_PEN, T_LINE, T_ERASE, TOOLS };
 static const char *const tool_names[TOOLS] = { "PEN", "LINE", "ERASE" };
 enum { K_LENGTH, K_RANGE, K_LOOK, K_BLACK, K_INK, K_BRUSH, K_LEVEL, K_KEYS, KNOBS };
 static const char *const knob_names[KNOBS] = { "length", "range", "picture", "black", "ink", "brush", "level", "keys" };
 static const uint8_t lengths[] = { 1, 2, 4, 8, 16, 32 };                 /* bars; then seconds */
-static const uint8_t secs[] = { 2, 4, 8, 16, 30, 60 };
+static const uint8_t secs[] = { 2, 4, 8, 16, 30, 60, 120, 240 };
 static int tool, knob, ink = 208, brush = 4, kbd_oct = 3;
 static struct rect plate_px;
 static int last_col[FINGERS + 1] = { -1, -1, -1, -1, -1, -1 }, last_row[FINGERS + 1];
@@ -26,14 +30,15 @@ static int dirty_word;                                            /* where the l
 static uint64_t clear_ms, snap_ms;                                  /* snap_ms: a picture asked for, waiting for one */
 static uint32_t snap_after;
 static bool key_held[128];
+static int16_t key_row[128], midi_row[128];                        /* the row each opened, the chord having moved since */
 
 static int length_index(void) {
     if (ans.bars) { for (int i = 0; i < 6; i++) if (lengths[i] >= ans.bars) return i; return 5; }
-    for (int i = 0; i < 6; i++) if (secs[i] >= ans.seconds) return 6 + i;
-    return 11;
+    for (int i = 0; i < 8; i++) if (secs[i] >= ans.seconds) return 6 + i;
+    return 13;
 }
 static void set_length(int i) {
-    i = CLAMP(i, 0, 11);
+    i = CLAMP(i, 0, 13);
     if (i < 6) ans.bars = lengths[i]; else { ans.bars = 0; ans.seconds = secs[i - 6]; }
 }
 
@@ -130,6 +135,42 @@ static void pointer(uint64_t now) {
     } else last_col[M] = -1;
 }
 
+/* ---- a sketch after Coil's ANS: slow dark bands low on the plate, swelling and drifting a few microtones, a haze
+   above them, and now and then a scratch high up; two minutes a pass ---- */
+static void coil_sketch(uint64_t now) {
+    undo_one(U_ANS, 0, "a drone after Coil's ANS", now);
+    ans_clear();
+    uint32_t seed = (uint32_t)now * 2654435761u + 1;
+#define RND() (seed ^= seed << 13, seed ^= seed >> 17, seed ^= seed << 5, seed)
+    for (int b = 0; b < 5; b++) {                                /* bands: in the lowest octave and a half */
+        int row = 4 + (int)(RND() % 104), width = 1 + (int)(RND() % 4), depth = 80 + (int)(RND() % 120);
+        uint32_t ph = RND(), rate_ = 300 + RND() % 900, drift = RND();
+        for (int c = 0; c < ANS_COLS; c++) {
+            int swell = 128 + sine_q15[((ph >> 24) + c * rate_ / 1024) & 255] / 256;          /* 0 .. 256, slowly */
+            int r = row + sine_q15[((drift >> 24) + c / 3) & 255] * 3 / 32768;               /* a few microtones either way */
+            int v = depth * swell / 256;
+            for (int d = -width; d <= width; d++) {
+                int rr = r + d; if (rr < 0 || rr >= ANS_ROWS) continue;
+                uint8_t *px = ans.plate + c * ANS_ROWS + rr;
+                int w = v * (width + 1 - (d < 0 ? -d : d)) / (width + 1);
+                if (w > *px) *px = (uint8_t)w;
+            }
+        }
+    }
+    for (int c = 0; c < ANS_COLS; c += 2) {                     /* a haze over the second octave */
+        int r = 72 + (int)(RND() % 72);
+        uint8_t *px = ans.plate + c * ANS_ROWS + r; if (*px < 30) *px = 30;
+    }
+    for (int k = 0; k < 7; k++) {                                /* scratches high up, short */
+        int c = (int)(RND() % (ANS_COLS - 24)), r = 200 + (int)(RND() % 150), len = 6 + (int)(RND() % 18);
+        for (int i = 0; i < len; i++) ans.plate[(c + i) * ANS_ROWS + r] = (uint8_t)(160 + RND() % 90);
+    }
+#undef RND
+    memset(ans.dirty, 0xFF, sizeof ans.dirty);
+    ans.bars = 0; ans.seconds = 120;
+    ui_notice("a drone after Coil's ANS: two minutes a pass", now);
+}
+
 /* ---- keys: the tools, the knobs, and the letter rows as a keyboard of the plate's tones ---- */
 static const char kb_low[] = "zsxdcvgbhnjm,l.;/", kb_high[] = "q2w3er5t6y7ui9o0p";
 static int key_note(uint8_t code) {
@@ -158,14 +199,16 @@ static bool key(uint8_t code, bool down, uint64_t now) {
         if (down == key_held[code & 127]) return true;           /* key repeat */
         key_held[code & 127] = down;
         if (down && ans.playing) undo_one(U_ANS, 0, "keys written into the plate", now);
-        ans_note(note_row(note), down ? 100 : 0);
+        if (down) key_row[code & 127] = (int16_t)note_row(harmony_note(note));
+        ans_note(key_row[code & 127], down ? 100 : 0);
         return true;
     }
     if (!down) return code == KEY_SPACE || code == KEY_HOME || code == KEY_TAB || code == KEY_UP || code == KEY_DOWN || code == KEY_LEFT ||
-                      code == KEY_RIGHT || code == KEY_ENTER || code == '\\' || code == KEY_BACKSPACE || code == KEY_PGUP || code == KEY_PGDN;
+                      code == KEY_RIGHT || code == KEY_ENTER || code == '\\' || code == KEY_BACKSPACE || code == KEY_PGUP || code == KEY_PGDN || code == KEY_INSERT;
     switch (code) {
     case KEY_SPACE: ans.playing = !ans.playing; return true;
     case KEY_HOME:  ans.seek = 1; return true;
+    case KEY_INSERT: coil_sketch(now); return true;
     case KEY_TAB:   tool = (tool + 1) % TOOLS; line_c0 = -1; return true;
     case KEY_UP:    knob = (knob + KNOBS - 1) % KNOBS; return true;
     case KEY_DOWN:  knob = (knob + 1) % KNOBS; return true;
@@ -190,7 +233,8 @@ static bool key(uint8_t code, bool down, uint64_t now) {
 
 static bool midi(uint8_t note, uint8_t vel, uint64_t now) {
     if (vel && ans.playing) undo_one(U_ANS, 0, "notes written into the plate", now);
-    ans_note(note_row(note), vel);
+    if (vel) midi_row[note & 127] = (int16_t)note_row(harmony_note(note));
+    ans_note(midi_row[note & 127], vel);
     return true;
 }
 
@@ -223,8 +267,9 @@ static int columns_of(int col) {                                   /* every pixe
 
 static void draw(uint64_t now) {
     (void)now;
+    struct lin_layout L; lineage_layout(&L, 30);
     int cols = text_cols(), rows = text_rows();
-    int sw = 30, x = 2, y = 2, pw = cols - 4 - sw - 1, ph = rows - y - 3;
+    int sw = L.kw, x = L.x, y = L.y, pw = L.pw, ph = L.ph;
     char t[96], o1[4], o2[4];
     snfmt(o1, sizeof o1, "C%d", ans.octave); snfmt(o2, sizeof o2, "C%d", ans.octave + 5);
     if (ans.bars) snfmt(t, sizeof t, "PLATE · %s to %s · 72 tones an octave · %d bar%s", o1, o2, ans.bars, ans.bars > 1 ? "s" : "");
@@ -311,8 +356,9 @@ static void draw(uint64_t now) {
         if (i == 0) { text_str(kx + 3, yy++, "try", C_GREEN, C_PANEL); if (yy >= y + ph - 1) break; }
         text_str_n(kx + 3, yy, tries[i], sw - 5, C_DIM, C_PANEL);
     }
+    ui_lesson(L.x, L.ly, cols - 4, L.lh, &lesson_ans);
     FOOTER("SPACE", "play", "HOME", "start", "TAB", "pen / line / erase", "↑ ↓ ← →", "knobs", "ENTER", "camera picture", "\\", "live camera",
-           "BKSP BKSP", "clear", "Z-/ Q-P", "its tones", "", "draw with the touchpad, every finger; the right button erases");
+           "BKSP BKSP", "clear", "INS", "a drone after Coil", "Z-/ Q-P", "its tones", "", "draw with the touchpad, every finger; the right button erases");
 }
 
-const struct page page_ans = { "ANS", "F11", KEY_F11, false, key, 0, pointer, 0, draw, true, midi, 0 };
+const struct view lin_ans = { "ANS", key, 0, pointer, draw, midi, "1957" };

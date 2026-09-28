@@ -25,6 +25,19 @@ static const struct fm_patch factory[FM_PATCHES] = {
     { "BRASS",   0, 60, { { 0, 2, 0, 100, 60, 400, 300, 80, 0, 0 }, { 0, 2, 0, 65, 90, 500, 250, 70, 0, 0 }, { 0, 2, 1, 40, 120, 600, 300, 60, 0, 0 }, { 2, 2, 0, 35, 150, 800, 300, 50, 0, 0 } }, 30, LFO_SINE, 0, 0, 0 },
 };
 
+/* the omnichord's (they don't follow edits of the bank): an electric piano like the factory one; a celeste, two pairs
+   with the bars' bright partials fading first; vibes, the bar's fundamental and its 4th partial, the motor's tremolo
+   left to the preset */
+static const struct fm_patch fixed[FM_FIXED] = {
+    { "FM PIANO", 1, 20, { { 0, 2, 0, 100, 1, 1400, 700, 30, 40, 20 }, { 0, 2, 0, 55, 1, 450, 400, 0, 50, 0 }, { 0, 28, 0, 22, 1, 150, 300, 0, 60, 0 }, { 0, 2, 0, 35, 1, 250, 300, 0, 40, 0 } }, 30, LFO_SINE, 0, 0, 0 },
+    { "CELESTE",  4, 0,  { { 0, 2, 0, 100, 1, 1300, 900, 0, 30, 20 }, { 0, 8, 0, 30, 1, 250, 300, 0, 50, 0 }, { 0, 8, 0, 35, 1, 700, 600, 0, 30, 0 }, { 0, 14, 0, 20, 1, 150, 200, 0, 40, 0 } }, 30, LFO_SINE, 0, 0, 0 },
+    { "VIBES",    4, 0,  { { 0, 2, 0, 100, 1, 2600, 1200, 0, 30, 20 }, { 0, 8, 0, 22, 1, 500, 500, 0, 40, 0 }, { 0, 8, 0, 30, 1, 1200, 900, 0, 30, 0 }, { 0, 20, 0, 10, 1, 300, 300, 0, 40, 0 } }, 30, LFO_SINE, 0, 0, 0 },
+    /* MERZBOW's junk: carriers at inharmonic ratios (1, 2.76, 5.4, a struck plate's), modulated hard and briefly */
+    { "JUNK METAL", 6, 70, { { 0, 2, 0, 100, 1, 1400, 500, 0, 20, 0 }, { 0, 5, 10, 70, 1, 900, 400, 0, 20, 0 }, { 0, 10, 8, 55, 1, 600, 300, 0, 20, 0 }, { 3, 13, 37, 90, 1, 120, 100, 0, 30, 0 } }, 30, LFO_SINE, 0, 0, 0 },
+    { "MARIMBA",  4, 0,  { { 0, 2, 0, 100, 1, 750, 350, 0, 30, 20 }, { 0, 8, 0, 32, 1, 70, 60, 0, 50, 0 }, { 0, 8, 0, 22, 1, 200, 150, 0, 30, 0 }, { 0, 20, 0, 16, 1, 25, 30, 0, 40, 0 } }, 30, LFO_SINE, 0, 0, 0 },
+};
+const struct fm_patch *fm_patch_of(int src) { return src < FM_PATCHES ? &fm_bank[src < 0 ? 0 : src] : &fixed[MIN(src - FM_PATCHES, FM_FIXED - 1)]; }
+
 /* operator waves as 8192-entry tables, so every operator is one lookup whatever its wave */
 static int16_t tri_tab[8192], saw_tab[8192], sq_tab[8192];
 static const int16_t *const wave_tab[4] = { sine_q15_8192, tri_tab, saw_tab, sq_tab };

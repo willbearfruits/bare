@@ -1,4 +1,10 @@
 #include "project.h"
+#include "meta.h"
+#include "carlos.h"
+#include "junk.h"
+#include "drone.h"
+#include "phase.h"
+#include "harmony.h"
 #include "ans.h"
 #include "seq.h"
 #include "wave.h"
@@ -32,6 +38,21 @@ static uint8_t *put(uint8_t *p, const char *tag, const void *data, uint32_t len)
 struct __attribute__((packed)) omni_blob { uint8_t quality, root, pad, strum; int8_t octave; uint8_t echo, draw_slot, hold; };
 struct __attribute__((packed)) stretch_blob { uint16_t factor, win; uint8_t mix, stay; };
 struct __attribute__((packed)) rhythm_blob { uint8_t pattern, bass, level, mute, chord_level, strings_level; };
+/* 2.6: the omnichord after the OM-108 (OMNI and RHYT stay, in their old meanings, for older builds) */
+struct __attribute__((packed)) omn2_blob { uint8_t root, suffix, voice, main, sub, sustain, pad_level, flags; int8_t octave, kb_octave, transpose, tune;
+                                           uint8_t pad, strum; };
+enum { OF_AUTO = 1, OF_HOLD = 2, OF_SYNC = 4, OF_KEYBOARD = 8 };
+struct __attribute__((packed)) rhy2_blob { uint8_t pattern, mute, classic, level; };
+struct mts1_blob { struct meta_family fam[META_FAMILIES]; uint8_t bars, seconds, pad[2]; };   /* METASTASEIS */
+struct crl1_blob { uint8_t scale; int8_t octave; uint8_t mono, glide, wave, cutoff, reso, contour, attack, decay, sustain, release, level, ribbon_steps, pad[2]; };   /* CARLOS */
+struct mrz1_blob { uint8_t drive, bits, chop, feedback, grain, bytes_rate, level, pad; };   /* MERZBOW's knobs */
+struct rch1_blob { uint8_t mode, players, len, notes[PHASE_STEPS], per_beat, hold, move, drift, sound, slot, level, pad[2]; };   /* REICH */
+struct __attribute__((packed)) rdg1_blob { struct drone_partial p[DRONE_PARTIALS]; int32_t target; uint16_t sweep_s; uint8_t fade_s, depth, level, pad[3]; };   /* RADIGUE */
+/* the buttons were Eb-first before 2.6 (Db-first now), with three qualities */
+static int old_root(int r) { return (r + 10) % OMNI_ROOTS; }
+static int new_root(int r) { return (r % OMNI_ROOTS + 2) % OMNI_ROOTS; }
+static int old_quality(int suf) { return suf == SUF_7 ? 2 : suf == SUF_MIN || suf == SUF_MIN7 || suf == SUF_DIM ? 1 : 0; }
+static int old_pattern(int p) { static const uint8_t near[RHYTHM_PATTERNS] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 4, 1, 3, 3 }; return near[p % RHYTHM_PATTERNS]; }
 struct __attribute__((packed)) tape_blob { uint8_t level[4]; int8_t low[4], high[4]; uint8_t mute[4]; uint16_t speed; uint8_t wow, hiss, loop, bounce; };   /* 1.0: 4 tracks */
 struct __attribute__((packed)) tape8_blob { uint8_t level[TAPE_TRACKS]; int8_t low[TAPE_TRACKS], high[TAPE_TRACKS], pan[TAPE_TRACKS];
                                             uint8_t mute[TAPE_TRACKS], solo[TAPE_TRACKS], source[TAPE_TRACKS]; uint16_t speed; uint8_t wow, hiss, loop, bounce;
@@ -92,7 +113,7 @@ size_t project_save(uint8_t *out, size_t cap, uint32_t room, bool with_tape) {
     if (cap < 16384) return 0;
     uint8_t *p = out;
     p = put(p, "HBPJ", (const char[]){ PROJECT_VERSION }, 1);
-    struct omni_blob ob = { omni.quality, omni.root, omni.pad_preset, omni.strum_preset, omni.octave, audio_echo(), (uint8_t)synth_draw_slot, omni.hold };
+    struct omni_blob ob = { (uint8_t)old_quality(omni.suffix), (uint8_t)old_root(omni.root), omni.pad_preset, omni.strum_preset, omni.octave, audio_echo(), (uint8_t)synth_draw_slot, omni.hold };
     p = put(p, "OMNI", &ob, sizeof ob);
     /* the song, then each pattern that has something in it: its number, its rows, its cells */
     struct song_blob sg; memset(&sg, 0, sizeof sg);
@@ -129,8 +150,28 @@ size_t project_save(uint8_t *out, size_t cap, uint32_t room, bool with_tape) {
     }
     tb.speed = tape.speed_q12; tb.wow = tape.wow; tb.hiss = tape.hiss; tb.loop = tape.loop; tb.bounce = tape.bounce; tb.loop_in = tape.loop_in; tb.loop_out = tape.loop_out;
     p = put(p, "TAP8", &tb, sizeof tb);
-    struct rhythm_blob rb = { rhythm.pattern, rhythm.bass, rhythm.level, rhythm.mute, omni.pad_level, omni.strum_level };
+    struct rhythm_blob rb = { (uint8_t)old_pattern(rhythm.pattern), omni.autoplay, rhythm.level, (uint8_t)(rhythm.mute & 15), omni.pad_level, omni.main_level };
     p = put(p, "RHYT", &rb, sizeof rb);
+    struct omn2_blob o2 = { omni.root, omni.suffix, omni.voice, omni.main_level, omni.sub_level, omni.sustain, omni.pad_level,
+                            (uint8_t)((omni.autoplay ? OF_AUTO : 0) | (omni.hold ? OF_HOLD : 0) | (omni.sync ? OF_SYNC : 0) | (omni.keyboard ? OF_KEYBOARD : 0)),
+                            omni.octave, omni.kb_octave, omni.transpose, omni.tune, omni.pad_preset, omni.strum_preset };
+    p = put(p, "OMN2", &o2, sizeof o2);
+    struct rhy2_blob r2 = { rhythm.next != 0xFF ? rhythm.next : rhythm.pattern, rhythm.mute, rhythm.classic, rhythm.level };
+    p = put(p, "RHY2", &r2, sizeof r2);
+    p = put(p, "HRM1", (const uint8_t[]){ harmony_on }, 1);          /* keys follow the chord */
+    struct mts1_blob mb1 = { { 0 }, meta.bars, meta.seconds }; memcpy(mb1.fam, meta.fam, sizeof meta.fam);
+    p = put(p, "MTS1", &mb1, sizeof mb1);                               /* METASTASEIS's families */
+    struct crl1_blob crl = { carlos.scale, carlos.octave, carlos.mono, carlos.glide, carlos.wave, carlos.cutoff, carlos.reso, carlos.contour,
+                            carlos.attack, carlos.decay, carlos.sustain, carlos.release, carlos.level, carlos.ribbon_steps, { 0 } };
+    p = put(p, "CRL1", &crl, sizeof crl);
+    struct mrz1_blob zb = { junk.drive, junk.bits, junk.chop, junk.feedback, junk.grain, junk.bytes_rate, junk.level, 0 };
+    p = put(p, "MRZ1", &zb, sizeof zb);
+    struct rdg1_blob rg; memcpy(rg.p, radigue.p, sizeof rg.p);
+    rg.target = radigue.target; rg.sweep_s = radigue.sweep_s; rg.fade_s = radigue.fade_s; rg.depth = radigue.depth; rg.level = radigue.level; memset(rg.pad, 0, sizeof rg.pad);
+    p = put(p, "RDG1", &rg, sizeof rg);                                 /* the drone's patch (whether it sounds is not kept) */
+    struct rch1_blob rc = { reich.mode, reich.players, reich.len, { 0 }, reich.per_beat, reich.hold, reich.move, reich.drift, reich.sound, reich.slot, reich.level, { 0 } };
+    memcpy(rc.notes, reich.notes, sizeof rc.notes);
+    p = put(p, "RCH1", &rc, sizeof rc);                                 /* REICH's pattern and process */
     uint8_t mb[sizeof(struct mix2_head) + MIX_CHANNELS * sizeof(struct mix2_ch)];
     struct mix2_head mh = { MIX_CHANNELS, mix.in_mono }; memcpy(mb, &mh, sizeof mh);
     for (int c = 0; c < MIX_CHANNELS; c++) {
@@ -215,6 +256,10 @@ bool project_load(const uint8_t *in, size_t len) {
     sieve_init();                                                 /* its sieves, or the defaults */
     cloud_defaults();                                             /* its clouds, or the defaults (all off) */
     upic.playing = false; upic_clear(); upic_arcs_in = -1;        /* its UPIC page, or an empty one */
+    omni_off(0); omni.voice = 0; omni.sub_level = 64; omni.sustain = 60; omni.sync = omni.keyboard = false;   /* the omnichord as 2.5 had it */
+    omni.kb_octave = 0; omni_set_transpose(0); omni_set_tune(0); rhythm.classic = false; harmony_on = false;
+    meta.playing = false; meta_defaults();                        /* METASTASEIS's families, or the defaults */
+    carlos_all_off(); carlos_init(); junk_defaults(); drone_defaults(); phase_defaults();   /* the homages' settings, or theirs */
     const uint8_t *p = in, *end = in + len;
     while (p + 8 <= end) {
         uint32_t clen; memcpy(&clen, p + 4, 4);
@@ -222,8 +267,19 @@ bool project_load(const uint8_t *in, size_t len) {
         if (clen > (size_t)(end - d)) break;
         if (memcmp(p, "OMNI", 4) == 0 && clen >= sizeof(struct omni_blob)) {
             const struct omni_blob *ob = (const void *)d;
-            omni.quality = ob->quality % 3; omni.root = ob->root % OMNI_ROOTS; omni.pad_preset = ob->pad % P_COUNT; omni.strum_preset = ob->strum % P_COUNT;
+            static const uint8_t suffix_of[3] = { SUF_MAJ, SUF_MIN, SUF_7 };
+            omni.suffix = suffix_of[ob->quality % 3]; omni.root = (uint8_t)new_root(ob->root); omni.pad_preset = ob->pad % P_COUNT; omni.strum_preset = ob->strum % P_COUNT;
             omni.octave = (int8_t)CLAMP(ob->octave, -2, 2); audio_set_echo(ob->echo); synth_draw_slot = ob->draw_slot % WAVE_SLOTS;
+            omni.hold = ob->hold != 0;                                  /* the switch; nothing sounds until a button */
+        } else if (memcmp(p, "OMN2", 4) == 0 && clen >= sizeof(struct omn2_blob)) {
+            const struct omn2_blob *o = (const void *)d;
+            omni.root = o->root % OMNI_ROOTS; omni.suffix = o->suffix % OMNI_SUFFIXES; omni_set_voice(o->voice % (OMNI_VOICES + 1));
+            omni.main_level = (uint8_t)MIN(o->main, 127); omni.sub_level = (uint8_t)MIN(o->sub, 127); omni.sustain = (uint8_t)MIN(o->sustain, 127);
+            omni.pad_level = (uint8_t)MIN(o->pad_level, 127);
+            omni.autoplay = o->flags & OF_AUTO; omni.hold = o->flags & OF_HOLD; omni.sync = o->flags & OF_SYNC; omni.keyboard = o->flags & OF_KEYBOARD;
+            omni.octave = (int8_t)CLAMP(o->octave, -2, 2); omni.kb_octave = (int8_t)CLAMP(o->kb_octave, -1, 1);
+            omni_set_transpose(o->transpose); omni_set_tune(o->tune);
+            omni.pad_preset = o->pad % P_COUNT; omni.strum_preset = o->strum % P_COUNT;
         } else if (memcmp(p, "SEQ ", 4) == 0 && clen >= sizeof(struct seq_blob)) {                  /* a 1.0 project */
             const struct seq_blob *sb = (const void *)d;
             char title[24]; memcpy(title, sb->title, sizeof title); title[23] = 0;
@@ -328,8 +384,55 @@ bool project_load(const uint8_t *in, size_t len) {
             tape.speed_q12 = (uint16_t)CLAMP(tb->speed, 2048, 8192); tape.wow = tb->wow > 100 ? 100 : tb->wow; tape.hiss = tb->hiss; tape.loop = tb->loop; tape.bounce = tb->bounce;
         } else if (memcmp(p, "RHYT", 4) == 0 && clen >= sizeof(struct rhythm_blob)) {
             const struct rhythm_blob *rb = (const void *)d;
-            rhythm.pattern = rb->pattern % RHYTHM_PATTERNS; rhythm.bass = rb->bass != 0; rhythm.level = (uint8_t)MIN(rb->level, 127);
-            rhythm.mute = rb->mute & 15; omni.pad_level = (uint8_t)MIN(rb->chord_level, 127); omni.strum_level = (uint8_t)MIN(rb->strings_level, 127);
+            rhythm.pattern = (uint8_t)(rb->pattern % 9); rhythm.next = 0xFF; omni.autoplay = rb->bass != 0; rhythm.level = (uint8_t)MIN(rb->level, 127);
+            rhythm.mute = rb->mute & 15; omni.pad_level = (uint8_t)MIN(rb->chord_level, 127); omni.main_level = (uint8_t)MIN(rb->strings_level, 127);
+        } else if (memcmp(p, "MTS1", 4) == 0 && clen >= sizeof(struct mts1_blob)) {
+            const struct mts1_blob *mb1 = (const void *)d;
+            memcpy(meta.fam, mb1->fam, sizeof meta.fam);
+            for (int f = 0; f < META_FAMILIES; f++) {                  /* a slot can hold anything */
+                struct meta_family *F = &meta.fam[f];
+                F->n = (uint8_t)CLAMP(F->n, 2, META_MAX); F->section %= META_SECTIONS; F->level = (uint8_t)MIN(F->level, 100);
+                F->a.p0 = (uint16_t)CLAMP(F->a.p0, UPIC_LO, UPIC_HI); F->a.p1 = (uint16_t)CLAMP(F->a.p1, UPIC_LO, UPIC_HI);
+                F->b.p0 = (uint16_t)CLAMP(F->b.p0, UPIC_LO, UPIC_HI); F->b.p1 = (uint16_t)CLAMP(F->b.p1, UPIC_LO, UPIC_HI);
+            }
+            meta.bars = (uint8_t)MIN(mb1->bars, 32); meta.seconds = (uint8_t)CLAMP(mb1->seconds, 1, 240); if (!meta.bars && !meta.seconds) meta.seconds = 20;
+            meta_compile();
+        } else if (memcmp(p, "CRL1", 4) == 0 && clen >= sizeof(struct crl1_blob)) {
+            const struct crl1_blob *c = (const void *)d;
+            carlos.scale = c->scale % CARLOS_SCALES; carlos.octave = (int8_t)CLAMP(c->octave, 1, 6); carlos.mono = c->mono != 0;
+            carlos.glide = (uint8_t)MIN(c->glide, 100); carlos.wave = c->wave % 3; carlos.cutoff = (uint8_t)MIN(c->cutoff, 127);
+            carlos.reso = (uint8_t)MIN(c->reso, 100); carlos.contour = (uint8_t)MIN(c->contour, 60); carlos.attack = (uint8_t)MIN(c->attack, 100);
+            carlos.decay = (uint8_t)MIN(c->decay, 100); carlos.sustain = (uint8_t)MIN(c->sustain, 100); carlos.release = (uint8_t)MIN(c->release, 100);
+            carlos.level = (uint8_t)MIN(c->level, 100); carlos.ribbon_steps = c->ribbon_steps != 0;
+            carlos_apply();
+        } else if (memcmp(p, "MRZ1", 4) == 0 && clen >= sizeof(struct mrz1_blob)) {
+            const struct mrz1_blob *z = (const void *)d;
+            junk.drive = (uint8_t)MIN(z->drive, 100); junk.bits = (uint8_t)CLAMP(z->bits, 1, 16); junk.chop = (uint8_t)MIN(z->chop, 100);
+            junk.feedback = (uint8_t)MIN(z->feedback, 100); junk.grain = (uint8_t)MIN(z->grain, 100); junk.bytes_rate = (uint8_t)MIN(z->bytes_rate, 100);
+            junk.level = (uint8_t)MIN(z->level, 100);
+        } else if (memcmp(p, "RDG1", 4) == 0 && clen >= sizeof(struct rdg1_blob)) {
+            const struct rdg1_blob *g = (const void *)d;
+            for (int i = 0; i < DRONE_PARTIALS; i++) {                 /* a slot can hold anything */
+                struct drone_partial q; memcpy(&q, &g->p[i], sizeof q);
+                radigue.p[i].harmonic = (uint8_t)CLAMP(q.harmonic, 1, 16); radigue.p[i].detune = (int16_t)CLAMP(q.detune, -200, 200);
+                radigue.p[i].level = (uint8_t)MIN(q.level, 100); radigue.p[i].breath_s = (uint16_t)CLAMP(q.breath_s, 30, 600);
+            }
+            int32_t t; memcpy(&t, &g->target, 4); uint16_t sw; memcpy(&sw, &g->sweep_s, 2);
+            radigue.sweep_s = (uint16_t)MIN(sw, 1800); radigue.fade_s = (uint8_t)CLAMP(g->fade_s, 1, 60); radigue.depth = (uint8_t)MIN(g->depth, 100);
+            radigue.level = (uint8_t)MIN(g->level, 100);
+            uint16_t keep = radigue.sweep_s; radigue.sweep_s = 0; drone_sweep_to(CLAMP(t, 12000, 96000)); radigue.sweep_s = keep;   /* there at once */
+        } else if (memcmp(p, "RCH1", 4) == 0 && clen >= sizeof(struct rch1_blob)) {
+            const struct rch1_blob *c = (const void *)d;
+            reich.mode = c->mode % PHASE_MODES; reich.players = (uint8_t)CLAMP(c->players, 2, PHASE_PLAYERS); reich.len = (uint8_t)CLAMP(c->len, 2, PHASE_STEPS);
+            for (int i = 0; i < PHASE_STEPS; i++) reich.notes[i] = c->notes[i] ? (uint8_t)CLAMP(c->notes[i], 24, 108) : 0;
+            reich.per_beat = (uint8_t)CLAMP(c->per_beat, 2, 4); reich.hold = (uint8_t)CLAMP(c->hold, 1, 32); reich.move = (uint8_t)CLAMP(c->move, 1, 16);
+            reich.drift = (uint8_t)CLAMP(c->drift, 1, 50); reich.sound = c->sound % PHASE_SOUNDS; reich.slot = c->slot % SAMPLE_SLOTS; reich.level = (uint8_t)MIN(c->level, 100);
+        } else if (memcmp(p, "HRM1", 4) == 0 && clen >= 1) {
+            harmony_on = d[0] != 0;
+        } else if (memcmp(p, "RHY2", 4) == 0 && clen >= sizeof(struct rhy2_blob)) {
+            const struct rhy2_blob *r = (const void *)d;
+            rhythm.pattern = r->pattern % RHYTHM_PATTERNS; rhythm.next = 0xFF; rhythm.mute = r->mute & 63; rhythm.classic = r->classic != 0;
+            rhythm.level = (uint8_t)MIN(r->level, 127);
         } else if (memcmp(p, "TAPB", 4) == 0 && clen >= sizeof(struct tape_blocks_hdr)) {
             const struct tape_blocks_hdr *h = (const void *)d;
             int n = MIN((int)h->count, (int)((clen - sizeof *h) / 2));
@@ -387,7 +490,7 @@ bool project_load(const uint8_t *in, size_t len) {
             s->gen++;
         } else if (memcmp(p, "ANS1", 4) == 0 && clen >= sizeof(struct ans_blob)) {
             const struct ans_blob *ab = (const void *)d;
-            ans.bars = (uint8_t)MIN(ab->bars, 32); ans.seconds = (uint8_t)CLAMP(ab->seconds, 1, 60); ans.octave = (uint8_t)CLAMP(ab->octave, 1, 4);
+            ans.bars = (uint8_t)MIN(ab->bars, 32); ans.seconds = (uint8_t)CLAMP(ab->seconds, 1, 240); ans.octave = (uint8_t)CLAMP(ab->octave, 1, 4);
             ans.level = (uint8_t)MIN(ab->level, 100); ans.look = ab->look ? ANS_EDGES : ANS_LIGHT; ans.thresh = (uint8_t)MIN(ab->thresh, 250);
             if (ab->offset != NO_FRAMES && ab->bytes == ANS_ROWS * ANS_COLS && ans.plate && n_media < SAMPLE_SLOTS + 2)
                 media[n_media++] = (struct project_media){ ans.plate, ab->bytes, ab->offset };

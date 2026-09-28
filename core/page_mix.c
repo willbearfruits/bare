@@ -12,8 +12,16 @@
 #include "doomhost.h"
 
 #define MASTER MIX_CHANNELS
-/* the DOOM strip is there once Doom has been started (typing iddqd): until then nothing gives it away */
-static int strips(void) { return doom_started() ? MIX_CHANNELS : CH_DOOM; }
+/* the strips, in their order: the channels, LINEAGE, and DOOM once Doom has been started (typing iddqd): until then
+   nothing gives it away. Where they don't all fit, they scroll to keep the chosen one in view. */
+static int vis[MIX_CHANNELS], nvis, first;
+static void visible(void) {
+    nvis = 0;
+    for (int c = 0; c < CH_DOOM; c++) vis[nvis++] = c;
+    vis[nvis++] = CH_LINEAGE;
+    if (doom_started()) vis[nvis++] = CH_DOOM;
+}
+static int index_of(int c) { for (int i = 0; i < nvis; i++) if (vis[i] == c) return i; return -1; }
 enum { FX_REVERB, FX_ECHO, FX_FILTER, FX_DRIVE, FX_CRUSH, FX_UNITS };
 #define FX0 (MASTER + 1)                          /* sel beyond the master: the effect units */
 static int sel, knob, fxp;                        /* sel: a channel, MASTER or FX0 + unit; knob: 0 pan 1 echo 2 reverb */
@@ -90,8 +98,13 @@ static bool key(uint8_t code, bool down, uint64_t now) {
     struct mix_channel *ch = sel < MASTER ? &mix.ch[sel] : 0;
     bool unit = sel >= FX0; int u = sel - FX0;
     switch (code) {
-    case KEY_LEFT:  sel = (sel + units - 1) % units; if (sel == strips() && sel < MASTER) sel = strips() - 1; fxp = 0; return true;
-    case KEY_RIGHT: sel = (sel + 1) % units; if (sel == strips() && sel < MASTER) sel = MASTER; fxp = 0; return true;
+    case KEY_LEFT: case KEY_RIGHT: {                           /* along the strips, the master, the effect units */
+        visible();
+        int d = code == KEY_RIGHT ? 1 : -1, at = sel < MASTER ? index_of(sel) : sel == MASTER ? nvis : nvis + 1 + (sel - FX0);
+        int n = nvis + 1 + FX_UNITS;
+        at = ((at < 0 ? 0 : at) + d + n) % n;
+        sel = at < nvis ? vis[at] : at == nvis ? MASTER : FX0 + (at - nvis - 1);
+        fxp = 0; (void)units; return true; }
     case KEY_TAB:   knob = (knob + (ui_shift ? 2 : 1)) % 3; return true;
     case KEY_UP:    if (unit) fxp = (fxp + fx_nparams[u] - 1) % fx_nparams[u]; else step_db(sel, 1); return true;
     case KEY_DOWN:  if (unit) fxp = (fxp + 1) % fx_nparams[u]; else step_db(sel, -1); return true;
@@ -203,7 +216,7 @@ static void db_text(char *out, int cap, int db) { if (db < MIX_DB_MIN) snfmt(out
 static void strip(int c, int x, int y, int w, int fh) {
     struct mix_channel *ch = &mix.ch[c];
     bool on = sel == c, heard = mix_heard(c);
-    static const char *const tight[MIX_CHANNELS] = { "PLAY", "SEQ", "RHY", "IN", "STR", "TAPE", "TOUCH", "ANS", "UPIC", "CLOUD", "DOOM" };
+    static const char *const tight[MIX_CHANNELS] = { "PLAY", "SEQ", "RHY", "IN", "STR", "TAPE", "TOUCH", "ANS", "UPIC", "CLOUD", "DOOM", "LIN" };
     const char *name = ui_cells(mix_names[c]) > w - 2 ? tight[c] : mix_names[c];     /* narrow strips: short names */
     int nw = ui_cells(name);
     text_fill(x, y, w - 1, 1, ' ', C_TEXT, on ? C_AMBER : C_PANEL);
@@ -301,9 +314,18 @@ static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
     ui_panel(1, 1, cols - 2, rows - 3, "MIXER", C_AMBER);
-    int n = strips(), mw = cols >= 140 ? 28 : 22, sw = (cols - 4 - mw - 1) / n, fh = rows - 20, y = 2;
-    for (int c = 0; c < n; c++) strip(c, 2 + c * sw, y, sw, fh);
-    int mx = 2 + n * sw + 1, fy = y + fh + 8;
+    visible();
+    int mw = cols >= 140 ? 28 : 22, room = cols - 4 - mw - 1, fh = rows - 20, y = 2;
+    int fit = MAX(1, MIN(nvis, room / 10)), sw = room / fit;             /* strips at least 10 cells wide */
+    int at = sel < MASTER ? index_of(sel) : -1;
+    if (at >= 0 && at < first) first = at;
+    if (at >= 0 && at >= first + fit) first = at - fit + 1;
+    first = CLAMP(first, 0, nvis - fit);
+    memset(fader_px, 0, sizeof fader_px); memset(knob_px, 0, sizeof knob_px); memset(mute_px, 0, sizeof mute_px); memset(solo_px, 0, sizeof solo_px);
+    for (int i = 0; i < fit; i++) strip(vis[first + i], 2 + i * sw, y, sw, fh);
+    if (first > 0) text_str(2, y + fh / 2, "◂", C_AMBER, C_PANEL);             /* more to either side */
+    if (first + fit < nvis) text_str(2 + fit * sw - 1, y + fh / 2, "▸", C_AMBER, C_PANEL);
+    int mx = 2 + fit * sw + 1, fy = y + fh + 8;
     for (int j = y; j < fy - 1; j++) text_put(mx - 1, j, G_VLINE, C_BORDER, C_PANEL);
     master(mx, y, cols - 3 - mx, fh);
     for (int i = 2; i < cols - 2; i++) text_put(i, fy - 1, G_HLINE, C_BORDER, C_PANEL);
@@ -313,4 +335,4 @@ static void draw(uint64_t now) {
                 "ENTER", "mute / MON", "BKSP", "solo", "\\", "input", "`", "mono", "1-= Z-/", "play");
 }
 
-const struct page page_mix = { "MIX", "F8", KEY_F8, true, key, 0, pointer, 0, draw };
+const struct page page_mix = { "MIX", true, key, 0, pointer, 0, draw };

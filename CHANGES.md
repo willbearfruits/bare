@@ -1,6 +1,97 @@
 # Changes
 
-## 2.5 — 2026-09-26
+## 1.0 beta — 2026-09-28
+
+The first release. A synthesizer that is the whole computer, started from a USB stick (or a CD, or a floppy) with no
+operating system underneath:
+
+- Twelve F keys: PLAY, an omnichord after Suzuki's OM-108 with its rhythm section, and instruments made from text files
+  (five come with it); SEQ, a tracker; WAVE, drawn waves and a sampler, after the Fairlight; STRETCH, which freezes
+  what you just played; OPERATOR, four-operator FM; TAPE, eight tracks; FILE, projects on the stick, songs, MIDI, the
+  keys and the log; MIX, with echo, reverb and master effects; TOUCH, a crackle box after Michel Waisvisz's; FX,
+  effects to play live; LINEAGE, homages to play with their histories: XENAKIS (METASTASEIS, CLOUDS, SIEVES, UPIC,
+  GENDY; F12 opens it), ANS and Coil, REICH, CARLOS, RADIGUE, MERZBOW.
+- Keys follow the chord (`Shift+K`), ten colour schemes (`Shift+H`), undo, MIDI in and out over serial ports and USB,
+  Ableton Link, songs out as WAV and in from WAVs, the F keys set up as you like, Doom (`iddqd`) with the WAD on the
+  stick and its first level's music as breakcore in the tracker (SEQ `Shift+4`).
+- PCs since the Pentium Pro, from 32 MB, BIOS or UEFI, a 32-bit and a 64-bit kernel; Intel HDA, AC'97 and the Sound
+  Blaster 16; PS/2, USB (its own xHCI stack) and I2C touchpads; updates from a file on any FAT drive.
+- It is a beta: played on a ThinkPad X250 and an ASUS VivoBook, booted on 90 emulated PCs; AC'97, the Sound Blaster
+  16, SATA and NVMe disks, the installer, Ethernet and the floppy have not been tried on real hardware yet.
+
+## Before 1.0: the development versions
+
+BARE! grew through versions numbered 1.0 to 2.6 (called homebrew until 2.2), made and played on its author's own
+machines; 2.5 was on GitHub for a while as a preview. The code and the documents still name them where they matter
+(an old project's chunks, an old stick's files): every project and stick from them loads and updates. Each in a line,
+then each in detail, as written at the time.
+
+- **2.6** (a beta): PLAY becomes the Suzuki OM-108 · keys follow the chord (`Shift+K`) · LINEAGE (`F11`): XENAKIS,
+  ANS, REICH, CARLOS, RADIGUE, MERZBOW · XENAKIS opens on METASTASEIS · TOUCH tells of Michel Waisvisz's Crackle Box ·
+  the F keys are yours · SEQ `Shift+4`: E1M1 as breakcore · a floppy.
+- **2.5** (a beta): XENAKIS (`F12`): GENDY, sieves, clouds and UPIC · instruments from text files, SHRUTI among them ·
+  Doom · free software, GPL-3.0-or-later.
+- **2.4**: ANS (`F11`), after Murzin's synthesizer · USB webcams, laid on its plate or played live.
+- **2.3**: the name BARE! (1.0 to 2.2 were called homebrew) · ten colour schemes · a splash at boot · FX (`F10`).
+- **2.2**: every finger on the touchpad · TOUCH (`F9`) · installing onto the computer's own disk · Ethernet and
+  Ableton Link.
+- **2.1**: precision touchpads on I2C, and fixes for UEFI laptops.
+- **2.0**: the Omnichord, the Fairlight, the tracker, the 8-track tape, a mixer and effects, mic and line in, MIDI,
+  undo, our own USB stack, AC97 and the Sound Blaster 16 — sized to the machine, down to a Pentium II with 32 MB.
+- **1.0**: the first release: i386 and x86-64 kernels via Limine, the framebuffer UI from 800x600 to 4K, PS/2 keyboard
+  and mouse, Intel HDA and the PC speaker, projects and A/B updates on the stick, the first versions of the pages.
+
+### 2.6 — 2026-09-28
+
+- The F keys can be set up as you like. Each one opens a page, a view of XENAKIS (UPIC, GENDY, CLOUDS, SIEVES), an
+  instrument, or nothing. Set them on the FILE page's new KEYS view (`Tab` to it: `←→` what a key opens, `Space` to
+  move it, `Del` to empty it, `R` `Y` the defaults), or drag a tab along the top onto another key. The stick keeps
+  them in KEYS.TXT, a line for each key that differs from the default, which a computer can edit too; a new stick
+  has one with only comments that explain it. Each key remembers where it was: with PLAY on `F1` and SHRUTI on `F2`,
+  `F1` still comes back to the omnichord. FILE always stays on a key. A key that opens nothing has no tab, and in
+  Doom it is Doom's own key again (`F2` save, `F3` load, `F6` quicksave).
+- A click on a tab opens it.
+- FILE's views are now projects, SONGS, MIDI, KEYS, LOG, INSTALL: INSTALL is five `Tab`s away.
+- PLAY is laid out after the Suzuki OM-108 and its owner's manual. The three letter rows are the MAJOR, MINOR and 7th
+  button rows (`1` … `=`, `Q` … `]`, `A` … `'` and `Enter` or `\`), roots Db Ab Eb Bb F C G D A E B F#; buttons pressed
+  together make maj7, m7, dim, aug, sus4 and add9, each played as three notes. The strumplate has 13 strings (`Z` …
+  `/` the first ten), the chord's tones folded from F# to F four times and the root on top. Ten voices, each a main
+  and a sub sound (omni 1, omni 2, harp, celeste, A. piano, guitar, FM piano, organ, vibes, banjo), with MAIN, SUB and
+  SUSTAIN knobs; CHORD AUTO, CHORD HOLD, SYNC START and INSTANT OFF; ten rhythms in the OM-108's two sets (ROCK 2, SLOW
+  ROCK, COUNTRY, HIP HOP and FUNK are new) beside BARE!'s own, a new one starting at the next bar, and the old kit as
+  CLASSIC; transpose and master tune; KEYBOARD mode (`Caps Lock`) with the MINOR and 7th rows as a keyboard, drums on
+  the MAJOR row and the strings. `O` in FILE's MIDI view sends it on the OM-108's channels (strings 1, chord 2, bass 3,
+  sub 4, drums 10). 2.5's projects load with their chord and pattern. There are 32 voices now (24 before).
+- Keys follow the chord (`Shift+K`): a note played on the other pages moves to the nearest tone of the omnichord's
+  chord. Off, every page is as it was. Saved with the project.
+- LINEAGE (`F11`, where ANS was): homages to play, each with a short history — ANS, and four new ones:
+  - REICH: two to four players loop one pattern while a process moves them apart and back (PHASE, SHIFT, DRIFT, and
+    LOOP for a sampler slot), on the exact sample.
+  - CARLOS: a Moog-style voice in equal temperament or Wendy Carlos's alpha, beta and gamma scales; the omnichord's
+    chord compared in cents.
+  - RADIGUE: a drone of eight partials tuned tenths of a cent apart, beating, breathing, gliding over minutes.
+  - MERZBOW: noise from junk — scraping fingers, struck metal, feedback, the program's own bytes — under a loudness
+    cap.
+  They play on a new mixer channel, LINEAGE; the mixer's strips scroll where they don't all fit. ANS gains a drone
+  sketch after Coil (`Insert`) and passes of two and four minutes.
+- XENAKIS opens on a new view, METASTASEIS: families of string glissandi strung between two guide lines, straight or
+  crossed, evenly spaced or in the Modulor's proportions, the ruled surface turning in 3D; `Enter` writes them onto
+  UPIC's page. The views are in the order of their music, and METASTASEIS and UPIC have a short history.
+- XENAKIS moves inside LINEAGE, the first of its homages by date, its five views on a second bar under LINEAGE's.
+  `F12` still opens it (now as LINEAGE's XENAKIS view; `F12` again steps its views), `F11` opens LINEAGE on ANS as
+  before, and a KEYS.TXT naming XENAKIS or its views still means them.
+- TOUCH has one too, under the board: Michel Waisvisz, who wanted electronic music played with the body, and his
+  Crackle Box (the Kraakdoos, made at STEIM in Amsterdam), which the page is after.
+- A floppy: a 3.5" 1.44 MB diskette that boots BIOS PCs with a floppy drive (GRUB starts it:
+  Limine can't read floppies; `make floppy`). It plays like the stick, but can't save.
+- New sounds for all of that, appended (projects keep their numbers): the omnichord's voices and drums, MOOG, JUNK
+  METAL, MARIMBA.
+- The font has É é è Î ü ö – — ¢ for the histories.
+- SEQ `⇧4`: Doom's E1M1 (or Doom II's MAP01) read from the WAD on the stick and arranged as breakcore in the tracker —
+  172 BPM, the guitars and bass over chopped breaks, rolls, stutters, gates and junk metal, an intro, a breakdown and a
+  tape stop. The notes come from the WAD when asked; nothing of Doom's music is in BARE!.
+
+### 2.5 — 2026-09-26
 
 - BARE! is free software: GPL-3.0-or-later (LICENSE). NOTICE lists what the stick and ISO carry (the Limine
   bootloader, the Terminus font) and their licences; the stick has them as LICENSE.TXT and NOTICE.TXT.
@@ -45,7 +136,7 @@
   and fades as it leaks out. Instrument files have three new settings for it: `tuning: just` (5-limit ratios from a
   tonic: the fifth exactly 3:2), `hold: toggle` (a key opens its note, the next press closes it) and `bellows: yes`.
 
-## 2.4 — 2026-09-26
+### 2.4 — 2026-09-26
 
 - ANS (`F11`): a plate of 360 tones, 72 to the octave, played by a moving slit, after Murzin's ANS synthesizer. Draw
   on it with every finger or the mouse, lay a camera picture over it, or let the live camera be the plate. Keys and
@@ -54,7 +145,7 @@
   camera on and shows the pictures arriving (its light is on only while something wants pictures). A webcam that is
   two cameras (the picture and an infrared one for face login) gives the picture.
 
-## 2.3 — 2026-09-26
+### 2.3 — 2026-09-26
 
 - The name is BARE! now (1.0 to 2.2 were "homebrew"). Update files are `BARE.UPD`; `HOMEBREW.UPD` is still read.
   The stick shows up as BARE on other computers.
@@ -69,7 +160,7 @@
 - The log says how fast the screen takes a whole frame (MB/s): on real laptops it tells whether the screen is written
   uncached.
 
-## 2.2 — 2026-09-26
+### 2.2 — 2026-09-26
 
 - Touchpads follow every finger: up to five on precision touchpads (I2C and USB), two on Synaptics pads (their
   advanced gesture mode, as on the ThinkPad X250). On PLAY each finger strums, so two fingers play two strings at once.
@@ -92,7 +183,7 @@
   setting of laptops from 2020 on). They are listed after the USB sticks, and used when they carry an installed
   homebrew.
 
-## 2.1 — 2026-09-26
+### 2.1 — 2026-09-26
 
 - Precision touchpads on I2C (most laptops since about 2015) strum the strings and draw with the pen, like the Synaptics
   PS/2 ones. They are found through the firmware's ACPI tables. Tested on an ASUS VivoBook.
@@ -102,7 +193,7 @@
 - USB: a device just plugged in gets 100 ms to settle before it is reset, and one that doesn't answer is tried twice
   more.
 
-## 2.0 — 2026-09-25
+### 2.0 — 2026-09-25
 
 Keys and pages
 - The F keys only switch pages. Functions moved to Shift (`Shift+?` lists them); SEQ demos are `Shift+1…3`.
@@ -171,7 +262,7 @@ Sound
 - The limiter looks 32 frames ahead, so peaks are caught before they go out.
 - The DC filter no longer leaves up to 31 steps of offset behind after loud passages.
 
-## 1.0 — 2026-09-25
+### 1.0 — 2026-09-25
 
 Sound
 - New engine: voices render in blocks, in stereo. About 3× less CPU per voice, 5× for FM.

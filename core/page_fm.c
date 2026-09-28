@@ -4,6 +4,7 @@
 #include "fm.h"
 #include "synth.h"
 #include "keys.h"
+#include "fkeys.h"
 #include "undo.h"
 
 enum { FP_WAVE, FP_RATIO, FP_FINE, FP_LEVEL, FP_A, FP_D, FP_S, FP_R, FP_VEL, FP_KEY, FP_COUNT };
@@ -265,9 +266,9 @@ static void draw(uint64_t now) {
         ui_panel(x, sy, w, sh, "SCOPE", C_SCOPE);
         ui_scope(x + 1, sy + 1, w - 2, sh - 2);
     }
-    FOOTER("A-' Z-/", "play this patch", "F1", "play page", "FM 1-4", "on PLAY (⇧ arrows) and sequencer tracks (PGUP PGDN)");
+    FOOTER("A-' Z-/", "play this patch", fkeys_page_key(PAGE_PLAY), "play page", "FM 1-4", "on PLAY (⇧ arrows) and sequencer tracks (PGUP PGDN)");
 }
 
 static int strum_sound(void) { return P_FM1 + patch; }
 
-const struct page page_fm = { "OPERATOR", "F5", KEY_F5, true, key, typing, pointer, strum_sound, draw, false, 0, "FM" };
+const struct page page_fm = { "OPERATOR", true, key, typing, pointer, strum_sound, draw, false, 0, "FM" };

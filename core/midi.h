@@ -9,6 +9,7 @@
 struct midi_state {
     int8_t   port;                      /* the platform's port, -1 = off */
     bool     clock_in, clock_out, notes_out, thru;
+    bool     omni_out;                  /* the omnichord out, on the OM-108's channels (below) */
     uint8_t  in_channel;                /* 0 = every channel, else 1..16 */
     uint16_t ext_bpm;                   /* the tempo an incoming clock gives, 0 = none heard lately */
     uint32_t in_msgs, out_bytes;
@@ -26,3 +27,10 @@ bool midi_next(struct midi_msg *m);     /* a channel message for the app to play
 void midi_out_note(int ch, uint8_t note, uint8_t vel);   /* vel 0 = off; ch 0..15 */
 void midi_clock_run(uint32_t frames);   /* the clock out, counted on the sample clock */
 void midi_transport(bool start);        /* the song started / stopped: FA / FC */
+/* the omnichord out, as the OM-108 sends it ("All Out"): the strings' main voice (and keyboard mode) on channel 1, the
+   chord on 2, the bass on 3, the sub voice on 4, the drums on 10 (General MIDI's map). Either side may call these. */
+void midi_omni_string(int note, int main_vel, int sub_vel);   /* both 0: off */
+void midi_omni_key(int note, int vel);
+void midi_omni_chord(const uint8_t *notes, int n);           /* the chord now (n 0: none); the last one is let go */
+void midi_omni_bass(int note, int vel);
+void midi_omni_drum(int gm_note, int vel);

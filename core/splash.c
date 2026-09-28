@@ -106,7 +106,7 @@ void splash_glyph(int px, int py, char c, uint8_t color, int scale) { gfx_glyph(
 
 void splash_captions(const char *caption, uint8_t color) {
     const struct font *f = sg.f;
-    char v[40]; snfmt(v, sizeof v, "BARE! %s", BARE_RELEASE);
+    char v[40]; snfmt(v, sizeof v, "BARE! %s", BARE_RELEASE BARE_STAGE);
     int y = sg.H - f->height - f->height / 2;
     gfx_text(f->width * 2, y, v, f, color, -1, 1);
     if (caption) gfx_text(sg.W - f->width * 2 - gfx_text_width(caption, f, 1), y, caption, f, color, -1, 1);

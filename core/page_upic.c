@@ -6,6 +6,8 @@
    upside down (inversion); CLOUDS can write a cloud onto it (Enter there). The picture is redrawn where the cursor was and
    is, and whole only when the page changes. */
 #include "xen.h"
+#include "lessons.h"
+#include "harmony.h"
 #include "upic.h"
 #include "sieve.h"
 #include "synth.h"
@@ -19,7 +21,7 @@ enum { K_LENGTH, K_SOUND, K_LEVEL, K_SNAP, KNOBS };
 static const char *const knob_names[KNOBS] = { "length", "sound", "level", "snap" };
 static const uint8_t lengths[] = { 1, 2, 4, 8, 16, 32 };                 /* bars; then seconds */
 static const uint8_t secs[] = { 2, 4, 8, 16, 30, 60, 120 };
-static int tool, knob = K_SOUND, sound = P_GD1, level = 100, snap;       /* snap: 0 free, 1 semitones, 2.. sieve S1.. */
+static int tool, knob = K_SOUND, sound = P_GD1, level = 100, snap;       /* snap: 0 free, 1 semitones, 2.. sieve S1.., 6 the chord */
 static struct rect page_px;
 static uint64_t clear_ms;
 static int shown_cursor = -1;
@@ -39,6 +41,7 @@ static void set_length(int i) {
 }
 static int32_t snapped(int32_t p) {
     if (snap == 1) return (p + 128) & ~255;
+    if (snap == 6) { bool was = harmony_on; harmony_on = true; int32_t q = harmony_snap_q8(p); harmony_on = was; return q; }   /* the omnichord's chord */
     if (snap >= 2) return sieve_snap_pitch(&sieves[snap - 2], p);
     return p;
 }
@@ -109,7 +112,7 @@ static bool key(uint8_t code, bool down, uint64_t now) {
         case K_LENGTH: set_length(length_index() + d); break;
         case K_SOUND:  sound = synth_preset_next(sound, d); break;
         case K_LEVEL:  level = CLAMP(level + d * 8, 8, 127); break;
-        case K_SNAP:   snap = (snap + d + 6) % 6; break;
+        case K_SNAP:   snap = (snap + d + 7) % 7; break;
         }
         return true; }
     case KEY_PGUP: case KEY_PGDN:
@@ -210,7 +213,7 @@ static void cursor_band(int cx) {
 static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
-    int sw = 30, x = 2, y = 2, pw = cols - 4 - sw - 1, ph = rows - y - 3;
+    int sw = 30, x = 2, y = XEN_TOP, lh = ui_lesson_rows(), pw = cols - 4 - sw - 1, ph = rows - 1 - lh - y;
     char t[80];
     if (upic.bars) snfmt(t, sizeof t, "UPIC · %d arc%s · %d bar%s", upic.narcs, upic.narcs == 1 ? "" : "s", upic.bars, upic.bars > 1 ? "s" : "");
     else snfmt(t, sizeof t, "UPIC · %d arc%s · %d s", upic.narcs, upic.narcs == 1 ? "" : "s", upic.seconds);
@@ -249,7 +252,7 @@ static void draw(uint64_t now) {
         case K_LENGTH: if (upic.bars) snfmt(v, sizeof v, "%d bar%s", upic.bars, upic.bars > 1 ? "s" : ""); else snfmt(v, sizeof v, "%d s", upic.seconds); break;
         case K_SOUND:  snfmt(v, sizeof v, "%s", synth_preset_name(sound)); break;
         case K_LEVEL:  snfmt(v, sizeof v, "%d", level); break;
-        default:       snfmt(v, sizeof v, "%s", snap == 0 ? "free" : snap == 1 ? "semitones" : (const char *[]){ "S1", "S2", "S3", "S4" }[snap - 2]); break;
+        default:       snfmt(v, sizeof v, "%s", snap == 0 ? "free" : snap == 1 ? "semitones" : snap == 6 ? harmony_label() + 4 : (const char *[]){ "S1", "S2", "S3", "S4" }[snap - 2]); break;
         }
         bool on = i == knob;
         text_put(kx + 1, ry, on ? G_DIAMOND : ' ', C_AMBER, C_PANEL);
@@ -274,8 +277,9 @@ static void draw(uint64_t now) {
         if (i == 0) { text_str(kx + 3, ry++, "try", C_GREEN, C_PANEL); if (ry >= lim) break; }
         text_str_n(kx + 3, ry, tries[i], sw - 5, C_DIM, C_PANEL);
     }
+    ui_lesson(x, y + ph, cols - 4, lh, &lesson_upic);
     FOOTER("SPACE", "play", "HOME", "start", "TAB", "pen / line / erase / scrub", "↑ ↓ ← →", "knobs", "PGUP PGDN", "transpose",
            "R", "backwards", "I", "upside down", "BKSP BKSP", "clear", "", "every finger draws; the right button rubs out");
 }
 
-const struct xen_view xen_upic = { "UPIC", key, 0, pointer, draw, 0 };
+const struct view xen_upic = { "UPIC", key, 0, pointer, draw, 0, "1977" };

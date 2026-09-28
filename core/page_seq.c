@@ -3,6 +3,7 @@
 #include "ui.h"
 #include "gfx.h"
 #include "seq.h"
+#include "doomtrack.h"
 #include "synth.h"
 #include "omni.h"
 #include "keys.h"
@@ -78,6 +79,14 @@ static bool key(uint8_t code, bool down, uint64_t now) {
             seq_load_demo(code - '1'); ord_cur = 0; cur_row = 0; if (!seq.playing) seq_play(true);
         }
         return true;
+    case '4': {                                             /* Doom's E1M1 from the WAD on the stick, as breakcore */
+        undo_begin(U_SONG, 0, "loading E1M1", now); undo_save(U_SONG, 0);
+        for (int p = 0; p < SEQ_PATTERNS; p++) undo_save(U_PATTERN, p);
+        undo_end();
+        char m[96];
+        if (doomtrack_load(m, sizeof m)) { ord_cur = 0; cur_row = 0; seq.edit_pat = seq.order[0]; if (!seq.playing) seq_play(true); }
+        say(m, now);
+        return true; }
     case KEY_SPACE: seq_play_pattern(!(seq.playing && seq.pattern_only)); return true;
     case '[': inst = inst > 1 ? inst - 1 : P_COUNT; return true;
     case ']': inst = inst < P_COUNT ? inst + 1 : 1; return true;
@@ -294,7 +303,7 @@ static void draw(uint64_t now) {
     if (order_focus) FOOTER("← →", "position", "↑ ↓", "pattern", "INS", "repeat", "DEL", "remove", "\\ ENTER", "back to the pattern");
     else FOOTER("SPACE", "play song", "⇧SPACE", "loop pattern", "Z-/ Q-P", "notes", "`", "off", "0-F", "hex", "← → ↑ ↓", "move", "TAB", "channel",
                 "DEL", "clear", "INS", "insert", "[ ]", "octave", "⇧[ ]", "sound", "- =", "tempo", "\\", "order", "⇧PGUP PGDN", "pattern",
-                "ENTER", "mute", "⇧C ⇧V", "copy/paste", "⇧L", "length", "⇧P", "lpb", "⇧1-3", "demos");
+                "ENTER", "mute", "⇧C ⇧V", "copy/paste", "⇧L", "length", "⇧P", "lpb", "⇧1-3", "demos", "⇧4", "E1M1 breakcore (the WAD)");
 }
 
 /* MIDI: stopped, a note goes in at the cursor like a key would; playing, it just plays the sound */
@@ -309,4 +318,4 @@ static bool midi_note(uint8_t note, uint8_t vel, uint64_t now) {
 }
 static int strum_sound(void) { return inst - 1; }
 
-const struct page page_seq = { "SEQ", "F2", KEY_F2, false, key, 0, pointer, strum_sound, draw, false, midi_note };
+const struct page page_seq = { "SEQ", false, key, 0, pointer, strum_sound, draw, false, midi_note };

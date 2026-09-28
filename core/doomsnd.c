@@ -71,8 +71,8 @@ static int music_vol = 64;
 
 void doomsnd_set_memory(void *events, uint32_t bytes) { ev = events; ev_cap = bytes / sizeof(struct mev); ev_n = 0; ntrk = 0; }
 
-/* GM programs to BARE!'s sounds, by family */
-static uint8_t gm_preset(int p) {
+/* GM programs to BARE!'s sounds, by family (also the tracker's import of a Doom song) */
+uint8_t doom_gm_preset(int p) {
     if (p < 8) return P_PLUCK;                             /* pianos */
     if (p < 16) return P_BELL;                             /* chromatic percussion */
     if (p < 24) return P_ORGAN;
@@ -111,7 +111,7 @@ static void note_off(int ch, int note) {
     if (sustain[ch]) setb(sus_bits[ch], note, true); else synth_note_off_tag(tag_of(ch, note));
 }
 static void note_on(int ch, int note, int vel) {
-    uint8_t preset = gm_preset(prog[ch]), snote = (uint8_t)note;
+    uint8_t preset = doom_gm_preset(prog[ch]), snote = (uint8_t)note;
     if (ch == 9) drum((uint8_t)note, &preset, &snote);
     int32_t v = vel * cvol[ch] / 127 * expr[ch] / 127 * music_vol / 127;
     if (v < 1) return;
@@ -183,12 +183,7 @@ void doomsnd_block(uint32_t n) {
     tick_q32 += step_q32 * n;
 }
 
-/* ---- reading songs ---- */
-static bool add(uint32_t tick, uint8_t st, uint8_t a, uint8_t b, uint8_t c) {
-    if (ev_n >= ev_cap) return false;
-    ev[ev_n++] = (struct mev){ tick, st, a, b, c };
-    return true;
-}
+/* ---- reading songs: MUS or a MIDI file, event by event into a sink (st 0xFD: a track begins) ---- */
 static uint32_t vlq(const uint8_t *d, uint32_t len, uint32_t *p) {
     uint32_t v = 0;
     for (int i = 0; i < 4 && *p < len; i++) { uint8_t b = d[(*p)++]; v = v << 7 | (b & 127); if (!(b & 128)) break; }
@@ -196,57 +191,56 @@ static uint32_t vlq(const uint8_t *d, uint32_t len, uint32_t *p) {
 }
 
 /* MUS: Doom's own score format (140 ticks a second, 16 channels, the 16th the drums) */
-static bool load_mus(const uint8_t *d, uint32_t len) {
+static bool load_mus(const uint8_t *d, uint32_t len, doom_song_sink add, void *ctx, uint32_t *div) {
     if (len < 16) return false;
     uint32_t start = d[6] | d[7] << 8, p = start, tick = 0;
     uint8_t note_vel[16];
     memset(note_vel, 127, sizeof note_vel);
     static const uint8_t cc[10] = { 0, 0, 1, 7, 10, 11, 91, 93, 64, 67 };
     static const uint8_t sys[5] = { 120, 123, 126, 127, 121 };
-    division = 0; ntrk = 1; trk[0].first = ev_n = 0;
+    *div = 0;
+    if (!add(ctx, 0, 0xFD, 0, 0, 0)) return false;
     while (p < len) {
         uint8_t e = d[p++], type = e >> 4 & 7, mch = e & 15, ch = mch == 15 ? 9 : mch >= 9 ? mch + 1 : mch;
         bool ok = true;
         switch (type) {
-        case 0: if (p >= len) return false; ok = add(tick, 0x80 | ch, d[p++] & 127, 0, 0); break;
+        case 0: if (p >= len) return false; ok = add(ctx, tick, 0x80 | ch, d[p++] & 127, 0, 0); break;
         case 1: {
             if (p >= len) return false;
             uint8_t k = d[p++];
             if (k & 128) { if (p >= len) return false; note_vel[mch] = d[p++] & 127; }
-            ok = add(tick, 0x90 | ch, k & 127, note_vel[mch], 0); break; }
-        case 2: { if (p >= len) return false; uint32_t b = d[p++] * 64u; ok = add(tick, 0xE0 | ch, b & 127, (uint8_t)(b >> 7), 0); break; }
-        case 3: { if (p >= len) return false; uint8_t c = d[p++]; if (c >= 10 && c <= 14) ok = add(tick, 0xB0 | ch, sys[c - 10], 0, 0); break; }
+            ok = add(ctx, tick, 0x90 | ch, k & 127, note_vel[mch], 0); break; }
+        case 2: { if (p >= len) return false; uint32_t b = d[p++] * 64u; ok = add(ctx, tick, 0xE0 | ch, b & 127, (uint8_t)(b >> 7), 0); break; }
+        case 3: { if (p >= len) return false; uint8_t c = d[p++]; if (c >= 10 && c <= 14) ok = add(ctx, tick, 0xB0 | ch, sys[c - 10], 0, 0); break; }
         case 4: {
             if (p + 1 >= len) return false;
             uint8_t c = d[p++], v = d[p++]; if (v > 127) v = 127;
-            if (c == 0) ok = add(tick, 0xC0 | ch, v, 0, 0); else if (c < 10) ok = add(tick, 0xB0 | ch, cc[c], v, 0);
+            if (c == 0) ok = add(ctx, tick, 0xC0 | ch, v, 0, 0); else if (c < 10) ok = add(ctx, tick, 0xB0 | ch, cc[c], v, 0);
             break; }
         case 5: break;                                         /* the end of a bar */
-        case 6: ok = add(tick, 0xFE, 0, 0, 0); p = len; break; /* the end of the score */
+        case 6: ok = add(ctx, tick, 0xFE, 0, 0, 0); p = len; break;   /* the end of the score */
         default: p++; break;
         }
         if (!ok) return false;
         if (e & 128 && p < len) tick += vlq(d, len, &p);
     }
-    trk[0].n = ev_n;
-    return ev_n > 0;
+    return true;
 }
 
 /* a standard MIDI file, format 0 or 1 */
-static bool load_midi(const uint8_t *d, uint32_t len) {
+static bool load_midi(const uint8_t *d, uint32_t len, doom_song_sink add, void *ctx, uint32_t *div) {
     if (len < 14 || memcmp(d, "MThd", 4)) return false;
     uint32_t hlen = (uint32_t)d[4] << 24 | d[5] << 16 | d[6] << 8 | d[7], tracks = d[10] << 8 | d[11];
-    division = d[12] << 8 | d[13];
-    if (!division || division & 0x8000) return false;          /* SMPTE time: not in Doom's music */
+    *div = d[12] << 8 | d[13];
+    if (!*div || *div & 0x8000) return false;                  /* SMPTE time: not in Doom's music */
     uint32_t p = 8 + hlen;
-    ntrk = 0; ev_n = 0;
-    for (uint32_t t = 0; t < tracks && ntrk < TRACKS && p + 8 <= len; t++) {
+    for (uint32_t t = 0; t < tracks && p + 8 <= len; t++) {
         uint32_t tl = (uint32_t)d[p + 4] << 24 | d[p + 5] << 16 | d[p + 6] << 8 | d[p + 7];
         bool is_track = memcmp(d + p, "MTrk", 4) == 0;
         p += 8;
         uint32_t end = tl > len - p ? len : p + tl;
         if (!is_track) { p = end; continue; }
-        trk[ntrk].first = ev_n;
+        if (!add(ctx, 0, 0xFD, 0, 0, 0)) return false;
         uint32_t tick = 0; uint8_t run = 0;
         while (p < end) {
             tick += vlq(d, end, &p);
@@ -256,29 +250,51 @@ static bool load_midi(const uint8_t *d, uint32_t len) {
             if (st == 0xFF) {
                 if (p >= end) break;
                 uint8_t type = d[p++]; uint32_t l = vlq(d, end, &p);
-                if (type == 0x51 && l == 3 && p + 3 <= end && !add(tick, 0xFF, d[p], d[p + 1], d[p + 2])) return false;
-                if (type == 0x2F) { if (!add(tick, 0xFE, 0, 0, 0)) return false; p = end; break; }
+                if (type == 0x51 && l == 3 && p + 3 <= end && !add(ctx, tick, 0xFF, d[p], d[p + 1], d[p + 2])) return false;
+                if (type == 0x2F) { if (!add(ctx, tick, 0xFE, 0, 0, 0)) return false; p = end; break; }
                 p += l; continue;
             }
             if (st == 0xF0 || st == 0xF7) { uint32_t l = vlq(d, end, &p); p += l; run = 0; continue; }
             run = st;
             uint8_t kind = st & 0xF0, a = p < end ? d[p] & 127 : 0, b = 0;
             if (kind == 0xC0 || kind == 0xD0) p++; else { b = p + 1 < end ? d[p + 1] & 127 : 0; p += 2; }
-            if (kind != 0xA0 && kind != 0xD0 && !add(tick, st, a, b, 0)) return false;
+            if (kind != 0xA0 && kind != 0xD0 && !add(ctx, tick, st, a, b, 0)) return false;
         }
         p = end;
-        trk[ntrk].n = ev_n - trk[ntrk].first;
-        if (trk[ntrk].n) ntrk++;
     }
-    return ntrk > 0;
+    return true;
+}
+
+bool doom_song_read(const uint8_t *data, uint32_t len, doom_song_sink sink, void *ctx, uint32_t *div) {
+    if (!data) return false;
+    return len >= 4 && !memcmp(data, "MUS\x1a", 4) ? load_mus(data, len, sink, ctx, div) : load_midi(data, len, sink, ctx, div);
+}
+
+/* the player's sink: each track's events in a row of ev[], at most TRACKS tracks (a track with nothing is dropped) */
+static int open_trk = -1;
+static void close_track(void) {
+    if (open_trk < 0) return;
+    trk[open_trk].n = ev_n - trk[open_trk].first;
+    if (trk[open_trk].n) ntrk++;
+    open_trk = -1;
+}
+static bool add(void *ctx, uint32_t tick, uint8_t st, uint8_t a, uint8_t b, uint8_t c) {
+    (void)ctx;
+    if (st == 0xFD) { close_track(); if (ntrk < TRACKS) { open_trk = ntrk; trk[ntrk].first = ev_n; } return true; }
+    if (open_trk < 0) return true;                           /* past the tracks it keeps */
+    if (ev_n >= ev_cap) return false;
+    ev[ev_n++] = (struct mev){ tick, st, a, b, c };
+    return true;
 }
 
 bool doomsnd_music_load(const uint8_t *data, uint32_t len) {
     doomsnd_music_stop();
     if (!ev || !data) return false;
-    bool ok = len >= 4 && !memcmp(data, "MUS\x1a", 4) ? load_mus(data, len) : load_midi(data, len);
-    if (!ok) { ntrk = 0; ev_n = 0; }
-    return ok;
+    ntrk = 0; ev_n = 0; open_trk = -1;
+    bool ok = doom_song_read(data, len, add, 0, &division);
+    close_track();
+    if (!ok || !ntrk) { ntrk = 0; ev_n = 0; return false; }
+    return true;
 }
 void doomsnd_music_play(bool loop) {
     if (!ntrk) return;

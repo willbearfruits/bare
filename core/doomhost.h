@@ -52,6 +52,13 @@ void doomsnd_sfx_update(int ch, int vol, int sep);   /* vol 0..127, sep 0 (left)
 void doomsnd_sfx_stop(int ch);
 bool doomsnd_sfx_playing(int ch);
 bool doomsnd_music_load(const uint8_t *data, uint32_t len);  /* MUS or a MIDI file; false: neither */
+/* a song read event by event, for whoever wants its notes (the tracker's import: core/doomtrack.c): MIDI-style status
+   bytes; 0xFD a track begins, 0xFE a track ends, 0xFF a tempo (a b c: µs a beat). *division: ticks a beat, or 0 for
+   MUS (140 ticks a second). The sink returns false to stop (no room). */
+typedef bool (*doom_song_sink)(void *ctx, uint32_t tick, uint8_t st, uint8_t a, uint8_t b, uint8_t c);
+bool doom_song_read(const uint8_t *data, uint32_t len, doom_song_sink sink, void *ctx, uint32_t *division);
+uint8_t doom_gm_preset(int program);        /* a GM program's nearest sound of BARE!'s */
+bool doom_wad_path(char *out, int cap, uint32_t *size);   /* the IWAD on the stick, as fat_find takes it */
 void doomsnd_music_play(bool looping);
 void doomsnd_music_stop(void);
 void doomsnd_music_volume(int vol);        /* 0..127 */

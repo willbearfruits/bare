@@ -47,7 +47,7 @@ void ans_init(uint32_t r) {
 void ans_mark(int col) { if (col >= 0 && col < ANS_COLS) ans.dirty[col >> 5] |= 1u << (col & 31); }
 
 uint32_t ans_frames_per_pass(void) {
-    if (!ans.bars) return (uint32_t)CLAMP(ans.seconds, 1, 60) * rate;
+    if (!ans.bars) return (uint32_t)CLAMP(ans.seconds, 1, 240) * rate;
     uint32_t bpm_q16 = seq_link_q16 ? seq_link_q16 : (uint32_t)(seq.bpm ? seq.bpm : 120) << 16;
     return (uint32_t)(((uint64_t)ans.bars * 4 * 60 * rate << 16) / bpm_q16);
 }

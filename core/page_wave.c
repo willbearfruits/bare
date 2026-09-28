@@ -6,6 +6,7 @@
    The touchpad is a pen here: the pad is the screen, and a finger draws, drags and picks where it lands.
    The bottom two letter rows are a chromatic keyboard for the current sound. */
 #include "ui.h"
+#include "harmony.h"
 #include "gfx.h"
 #include "wave.h"
 #include "synth.h"
@@ -14,6 +15,7 @@
 #include "omni.h"
 #include "mix.h"
 #include "keys.h"
+#include "fkeys.h"
 #include "undo.h"
 
 #define GR_HI    ramp(R_GREEN, 15)
@@ -39,6 +41,11 @@ static const char kb[] = "zsxdcvgbhnjm,l.;/";   /* C to E: the bottom letter row
 #define TAG_KB 0x500
 
 static void say(const char *m, uint64_t now) { snfmt(msg, sizeof msg, "%s", m); msg_ms = now; }
+static const char *with_key(const char *m, int page) {           /* "…" and, where a key opens the page, " (F4)" */
+    static char b[64]; const char *k = fkeys_page_key(page);
+    if (k) snfmt(b, sizeof b, "%s (%s)", m, k); else snfmt(b, sizeof b, "%s", m);
+    return b;
+}
 static int play_preset(void) { return sub == SUB_8 ? P_SMP1 + sslot : sound; }
 
 /* ---- the sample markers ---- */
@@ -114,7 +121,7 @@ static bool sample_key(uint8_t code, uint64_t now) {
         if (sampler_grab(sslot)) { sample_status(s, m, sizeof m); say(m, now); }
         else say("NOTHING PLAYED IN THE LAST 10 S", now);
         return true;
-    case 'f': say(sampler_to_stretch(sslot) ? "THE STRETCHER PLAYS IT (F4)" : "THE SLOT IS EMPTY", now); return true;
+    case 'f': say(sampler_to_stretch(sslot) ? with_key("THE STRETCHER PLAYS IT", PAGE_STRETCH) : "THE SLOT IS EMPTY", now); return true;
     case 'q': if (sampler.state == SMP_IDLE) sampler.source = (uint8_t)((sampler.source + 1) % SMP_SOURCES); return true;
     case 'w': {
         int ri = (s->rate_i + 1) % SAMPLE_RATES;
@@ -152,7 +159,7 @@ static bool key(uint8_t code, bool down, uint64_t now) {
         uint16_t tag = (uint16_t)(TAG_KB | i);
         if (down && !(held >> i & 1)) {
             held |= 1u << i;
-            synth_note_on((uint8_t)CLAMP(12 * (octave + 1) + i, 0, 127), 110, (uint8_t)play_preset(), tag);
+            synth_note_on((uint8_t)CLAMP(harmony_note(12 * (octave + 1) + i), 0, 127), 110, (uint8_t)play_preset(), tag);
         } else if (!down) { held &= ~(1u << i); synth_note_off_tag(tag); }
         return true;
     }
@@ -464,7 +471,7 @@ static void draw_side(int x, int y, int w, int h) {
         snfmt(line, sizeof line, "%u S  8 BIT %u KHZ", per / sampler_rate_hz(4), sampler_rate_hz(4) / 1000);
         text_str_n(x + 2, iy++, line, w - 4, GR_TX, C_BLACK);
         iy++;
-        if (stretch.frozen && iy < y + h - 1) text_str_n(x + 2, iy++, "STRETCHER FROZEN (F4)", w - 4, GR_HI, C_BLACK);
+        if (stretch.frozen && iy < y + h - 1) text_str_n(x + 2, iy++, with_key("STRETCHER FROZEN", PAGE_STRETCH), w - 4, GR_HI, C_BLACK);
     } else if (iy + 8 < y + h) {
         static const int sounds[4] = { P_DRAWN, P_MORPH, P_SCAN, P_ROM };
         text_str(x + 2, iy++, "KEYS PLAY", GR_LO, C_BLACK);
@@ -609,4 +616,4 @@ static void draw(uint64_t now) {
 
 static int strum_sound(void) { return play_preset(); }     /* what MIDI plays here */
 
-const struct page page_wave = { "WAVE", "F3", KEY_F3, false, key, 0, pointer, strum_sound, draw, true };
+const struct page page_wave = { "WAVE", false, key, 0, pointer, strum_sound, draw, true };

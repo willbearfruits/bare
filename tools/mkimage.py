@@ -60,6 +60,24 @@ if with_upd: fs.add(fs.root, 'BARE.UPD', open(with_upd, 'rb').read())
 instr = fs.mkdir(fs.root, 'INSTR')
 for f in sorted(os.listdir(f'{here}/instruments')):
     if f.endswith('.txt'): fs.add(instr, os.path.splitext(f)[0].upper()[:8] + '.TXT', dos(open(f'{here}/instruments/{f}').read()))
+# which F key opens what: only comments until a key is changed (BARE! then writes it, with this header: core/fkeys.c)
+names = []
+for f in sorted(os.listdir(f'{here}/instruments')):
+    if f.endswith('.txt'):
+        names += [l.split(':', 1)[1].strip().upper() for l in open(f'{here}/instruments/{f}') if l.lower().startswith('name:')][:1]
+fs.add(fs.root, 'KEYS.TXT', dos(
+    '# BARE! - what each F key opens. Ctrl+1 to 9, 0, - and = are the same twelve keys.\n'
+    '# A line changes one key, like "F9 SHRUTI" or "F10 off". A key can open\n'
+    '#   a page:          PLAY SEQ WAVE STRETCH OPERATOR TAPE FILE MIX TOUCH FX LINEAGE\n'
+    '#   a LINEAGE view:  XENAKIS ANS REICH CARLOS RADIGUE MERZBOW\n'
+    '#   a XENAKIS view:  METASTASEIS CLOUDS SIEVES UPIC GENDY\n'
+    '#   an instrument:   ' + ' '.join(names) + '\n'
+    '# A key without a line opens what it does by default:\n'
+    '#   F1 PLAY  F2 SEQ  F3 WAVE  F4 STRETCH  F5 OPERATOR  F6 TAPE\n'
+    '#   F7 FILE  F8 MIX  F9 TOUCH  F10 FX  F11 LINEAGE  F12 XENAKIS\n'
+    '# FILE is always on a key. BARE! writes this file again when its keys change\n'
+    '# (on the FILE page, Tab to KEYS; or a tab dragged along the top).\n\n'
+    '# (every key opens what it does by default)\n'))
 dirs = [fs.root, boot, lim, efi, efib, instr]
 if doom_wad:
     doom = fs.mkdir(fs.root, 'DOOM'); dirs.append(doom)

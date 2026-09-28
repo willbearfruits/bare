@@ -67,7 +67,7 @@ void earlycon_start(const struct fb_info *f) {
         for (int r = 0; r < SPLASH_LOGO_ROWS; r++)
             for (int c = 0; c < SPLASH_LOGO_COLS; c++)
                 if (splash_logo[r][c] != ' ') glyph(x0 + c * 8 * s, y0 + r * 16 * s, (uint8_t)splash_logo[r][c], amber, s);
-        const char *rel = "release " BARE_RELEASE;
+        const char *rel = "release " BARE_RELEASE BARE_STAGE;
         int rl = 0; while (rel[rl]) rl++;
         int ry = (y0 + SPLASH_LOGO_ROWS * 16 * s) / 16 + 1, rx = (cols - rl) / 2;
         for (const char *p = rel; *p; p++) glyph(rx++ * 8, ry * 16, (uint8_t)*p, dim, 1);

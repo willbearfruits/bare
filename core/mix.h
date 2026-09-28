@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum { CH_PLAY, CH_SEQ, CH_RHYTHM, CH_INPUT, CH_STRETCH, CH_TAPE, CH_TOUCH, CH_ANS, CH_UPIC, CH_CLOUD, CH_DOOM, MIX_CHANNELS };
+enum { CH_PLAY, CH_SEQ, CH_RHYTHM, CH_INPUT, CH_STRETCH, CH_TAPE, CH_TOUCH, CH_ANS, CH_UPIC, CH_CLOUD, CH_DOOM, CH_LINEAGE, MIX_CHANNELS };
 #define MIX_CHANNELS_V1 6                  /* before 2.2: no TOUCH */
 #define MIX_DB_MIN  (-60)
 #define MIX_DB_MAX  12

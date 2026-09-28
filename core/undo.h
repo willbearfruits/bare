@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum { U_PATTERN, U_SONG, U_WAVE, U_FM, U_SAMPLE, U_SMETA, U_TAPE, U_ANS, U_GENDY, U_SIEVE, U_CLOUD, U_UPIC, U_KINDS };   /* U_SMETA: a sample's settings, not its frames; U_ANS: the ANS plate */
+enum { U_PATTERN, U_SONG, U_WAVE, U_FM, U_SAMPLE, U_SMETA, U_TAPE, U_ANS, U_GENDY, U_SIEVE, U_CLOUD, U_UPIC, U_META, U_KINDS };   /* U_SMETA: a sample's settings, not its frames; U_ANS: the ANS plate */
 
 void undo_init(uint32_t bytes);
 uint32_t undo_capacity(void);

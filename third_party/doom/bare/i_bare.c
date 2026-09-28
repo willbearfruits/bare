@@ -41,6 +41,7 @@ enum { KEY_ENTER_DOOM = KEY_ENTER, KEY_BACKSPACE_DOOM = KEY_BACKSPACE, KEY_TAB_D
 #undef KEY_END
 #undef KEY_PGUP
 #undef KEY_PGDN
+enum { KEY_F1_DOOM = KEY_F1, KEY_F11_DOOM = KEY_F11, KEY_F12_DOOM = KEY_F12 };   // Doom's F1 … F10 are in a row
 #undef KEY_F1
 #undef KEY_F2
 #undef KEY_F3
@@ -169,7 +170,10 @@ static int doom_code(uint8_t c) {
     case KEY_CAPS:      return KEY_CAPSLOCK;
     case KEY_PRTSC:     return KEY_PRTSCR;
     case KEY_SCROLL:    return KEY_SCRLCK;
+    case KEY_F11:       return KEY_F11_DOOM;          // the F keys reach Doom only when they open nothing in BARE!
+    case KEY_F12:       return KEY_F12_DOOM;
     }
+    if (c >= KEY_F1 && c <= KEY_F10) return KEY_F1_DOOM + (c - KEY_F1);
     return c >= 32 && c < 127 ? c : 0;
 }
 static int typed(int c) {

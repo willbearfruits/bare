@@ -6,9 +6,12 @@
    the touchpad (or the mouse moving, or Enter held) pumps the air. Every key reaches it, so nothing falls through to
    the omnichord behind. */
 #include "ui.h"
+#include "harmony.h"
 #include "gfx.h"
 #include "inst.h"
 #include "keys.h"
+#include "fkeys.h"
+#include "app.h"
 
 static int knob, octave_shift;                              /* the knob chosen; the keys' octave, ± */
 static struct rect strip_px, pads_px;
@@ -27,18 +30,19 @@ static int key_pitch(const struct inst *in, uint8_t code) {
     for (int i = 0; kb_high[i] && k < 0; i++) if (code == (uint8_t)kb_high[i]) k = 17 + i;
     if (k < 0 || in->keys == KEYS_OFF) return -1;
     int root = in->keys_root + octave_shift * 12;
-    if (in->keys == KEYS_CHROMATIC) { int n = root + (k < 17 ? k : k - 17 + 12); return n >= 0 && n <= 127 ? n * 256 : -1; }
-    return inst_step(in, CLAMP(root, 0, 127), k);                               /* up the scale: the upper row goes on from the lower */
+    if (in->keys == KEYS_CHROMATIC) { int n = root + (k < 17 ? k : k - 17 + 12); return n >= 0 && n <= 127 ? harmony_snap_q8(n * 256) : -1; }
+    int p = inst_step(in, CLAMP(root, 0, 127), k);                              /* up the scale: the upper row goes on from the lower */
+    return p < 0 ? p : harmony_snap_q8(p);
 }
-static int pad_pitch(const struct inst *in, int p) { return inst_step(in, in->pads_root, p); }
+static int pad_pitch(const struct inst *in, int p) { int q = inst_step(in, in->pads_root, p); return q < 0 ? q : harmony_snap_q8(q); }
 static int32_t strip_pitch(const struct inst *in, int x32767) {  /* where across the strip, in its steps */
     int lo = in->strip_lo * 256, hi = in->strip_hi * 256;
     int32_t q = lo + (int32_t)((int64_t)(hi - lo) * CLAMP(x32767, 0, 32767) / 32767);
-    if (in->steps == STEPS_SEMI) return (q + 128) & ~255;
+    if (in->steps == STEPS_SEMI) return harmony_snap_q8((q + 128) & ~255);
     if (in->steps == STEPS_SCALE) {                          /* the nearest step of its scale */
         int32_t best = q, bd = 1 << 30;
         for (int k = 0; k < 128; k++) { int s = inst_step(in, in->strip_lo, k); if (s < 0 || s > hi + 256) break; int d = s > q ? s - q : q - s; if (d < bd) { bd = d; best = s; } }
-        return best;
+        return harmony_snap_q8(best);
     }
     return q;
 }
@@ -67,7 +71,7 @@ bool inst_page_key(int i, uint8_t code, bool down, uint64_t now) {
     return true;                                             /* nothing falls through to the omnichord */
 }
 
-bool inst_page_midi(int i, uint8_t n, uint8_t vel, uint64_t now) { (void)i; (void)now; inst_note(512 + n, n * 256, vel ? vel : 64, vel > 0); return true; }
+bool inst_page_midi(int i, uint8_t n, uint8_t vel, uint64_t now) { (void)i; (void)now; inst_note(512 + n, harmony_snap_q8(n * 256), vel ? vel : 64, vel > 0); return true; }
 
 static int pad_at(int x, int y, const struct inst *in) {    /* the pad under a point of the grid, or -1 */
     if (!ui_in(pads_px, x, y) || !in->pads_w) return -1;
@@ -253,10 +257,10 @@ void inst_page_draw(int i, uint64_t now) {
     if (ky < lim) { snfmt(line, sizeof line, "file: %s", in->file); text_str_n(kx + 3, ky++, line, sw - 5, C_DIM, C_PANEL); }
     if (in->bellows && !in->strip_hi && !in->pads_w && in->hold == HOLD_TOGGLE)
         FOOTER("Z-/ Q-P", "open, close", "", "a finger to and fro: the bellows", "ENTER", "pump", "SPACE", "close all", "↑ ↓ ← →", "knobs",
-               "F1", "next instrument");
+               fkey_names[app_key()], "next instrument");
     else if (in->bellows && !in->strip_hi && !in->pads_w)
-        FOOTER("Z-/ Q-P", "play", "", "a finger to and fro: the bellows", "ENTER", "pump", "SPACE", "hold", "↑ ↓ ← →", "knobs", "F1", "next instrument");
-    else if (in->strip_hi) FOOTER("", "the touchpad is the strip", "↑ ↓ ← →", "knobs", "SPACE", "hold", "Z-/ Q-P", "keys", "F1", "next instrument");
-    else if (in->pads_w) FOOTER("", "the touchpad is the pads", "↑ ↓ ← →", "knobs", "SPACE", "hold", "Z-/ Q-P", "keys", "F1", "next instrument");
-    else FOOTER("Z-/ Q-P", "play", "PGUP PGDN", "octave", "↑ ↓ ← →", "knobs", "SPACE", "hold", "F1", "next instrument");
+        FOOTER("Z-/ Q-P", "play", "", "a finger to and fro: the bellows", "ENTER", "pump", "SPACE", "hold", "↑ ↓ ← →", "knobs", fkey_names[app_key()], "next instrument");
+    else if (in->strip_hi) FOOTER("", "the touchpad is the strip", "↑ ↓ ← →", "knobs", "SPACE", "hold", "Z-/ Q-P", "keys", fkey_names[app_key()], "next instrument");
+    else if (in->pads_w) FOOTER("", "the touchpad is the pads", "↑ ↓ ← →", "knobs", "SPACE", "hold", "Z-/ Q-P", "keys", fkey_names[app_key()], "next instrument");
+    else FOOTER("Z-/ Q-P", "play", "PGUP PGDN", "octave", "↑ ↓ ← →", "knobs", "SPACE", "hold", fkey_names[app_key()], "next instrument");
 }

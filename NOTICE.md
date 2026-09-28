@@ -7,13 +7,18 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE).
 
 Copyright (C) 2026 willbearfruits.
 
-## What the stick and the ISO carry besides BARE!
+## What the images carry besides BARE!
 
 - **Limine**, the bootloader (its BIOS and UEFI files). Copyright (C) 2019-2026 Mintsuki and contributors. BSD
   2-Clause License: [LICENSES/Limine-BSD-2-Clause.txt](LICENSES/Limine-BSD-2-Clause.txt).
 - **Terminus Font**, the text on screen (its 8x16 and 12x24 bitmaps, turned into C by `tools/psf2c.py`, with a few
   glyphs it lacks drawn in the same style). Copyright (C) 2020 Dimitar Toshkov Zhekov. SIL Open Font License 1.1:
   [LICENSES/Terminus-Font-OFL-1.1.txt](LICENSES/Terminus-Font-OFL-1.1.txt).
+- **GRUB** 2.14, on the floppy image only: its boot sector and a core image made with its `grub-mkimage` from the
+  modules of Arch Linux's grub 2:2.14-1 package (Limine, on the stick and the ISO, can't read a floppy drive).
+  Copyright (C) Free Software Foundation, Inc. GPL-3.0-or-later ([LICENSE](LICENSE)). Its source:
+  https://ftp.gnu.org/gnu/grub/grub-2.14.tar.xz, and how Arch built it:
+  https://gitlab.archlinux.org/archlinux/packaging/packages/grub (tag 2-2.14-1).
 
 ## Doom's engine
 
@@ -32,6 +37,10 @@ Copyright (C) 2026 willbearfruits.
 
 ## Named after
 
-Pages and sounds are named after the instruments and pieces that inspired them: Evgeny Murzin's ANS synthesizer, Iannis
-Xenakis's UPIC, GENDY3 and S.709, the Fairlight CMI, the Suzuki Omnichord, Ableton's Operator. The names describe; none
-of their makers is involved.
+Pages and sounds are named after the instruments, pieces and musicians that inspired them: Evgeny Murzin's ANS
+synthesizer and Coil's album ANS; Iannis Xenakis's Metastaseis, the Philips Pavilion, UPIC, GENDY3 and S.709; the
+Fairlight CMI; the Suzuki Omnichord (its OM-108 and OM-84); Ableton's Operator; and, on the LINEAGE page, Steve Reich,
+Wendy Carlos, Éliane Radigue and Merzbow (Masami Akita), whose techniques its views play and whose work its short
+histories describe; the TOUCH page is after Michel Waisvisz's Crackle Box (the Kraakdoos, made at STEIM), and tells
+of it the same way. No music of theirs is quoted: the patterns and sounds are BARE!'s own. The names describe; none of
+the people, makers or companies named is involved with BARE! or endorses it.

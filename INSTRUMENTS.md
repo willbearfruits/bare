@@ -2,7 +2,8 @@
 
 An instrument is a small text file. Put it in the `INSTR` folder on the stick (it's on the stick's first partition,
 the one any computer opens), start BARE!, and it is there: on the PLAY page, press `F1` again to step from the
-Omnichord to each instrument in turn. The file says what it sounds like and how it's played. Nothing in it can crash
+Omnichord to each instrument in turn, or give it an F key of its own (FILE, `Tab` to KEYS, or a line in the stick's
+KEYS.TXT: `F9 MYHARP`). The file says what it sounds like and how it's played. Nothing in it can crash
 BARE!: a mistake is shown on the instrument's page and in the log (F7, Tab to LOG), and the rest of the file still
 counts.
 
@@ -54,7 +55,7 @@ A file on the stick with the same name as a built-in instrument replaces it.
 |---|---|---|
 | `wave` | `pulse` `square` `saw` `tri` `sine` `noise` | the basic waves |
 | | `drawn` `morph` `scan` | the WAVE page's drawn waves |
-| | `gendy1` … `gendy4` | GENDY's patches (XENAKIS page) |
+| | `gendy1` … `gendy4` | GENDY's patches (XENAKIS, in LINEAGE) |
 | | `fm1` … `fm4` | the OPERATOR page's FM patches |
 | | `sample1` … `sample8` | the sampler's slots |
 | `width` | 5 – 95 | pulse width, % (for `pulse`) |
@@ -75,7 +76,7 @@ A file on the stick with the same name as a built-in instrument replaces it.
 | `strip` | `LOW HIGH` (two notes) | the touchpad as a strip: across it is the pitch, pressing harder is louder |
 | `steps` | `semitones`, `scale`, `free` | on the strip: a note a key, the scale's notes, or no steps at all |
 | `pads` | `COLUMNSxROWS NOTE` (up to 8x8) | a grid of pads, up the scale from NOTE; the touchpad stands for the grid |
-| `scale` | `chromatic` `major` `minor` `dorian` `phrygian` `lydian` `mixolydian` `pentatonic` `minorpenta` `blues` `wholetone` `harmonic`, or `S1` … `S4` | the scale; S1–S4 are the sieves on the XENAKIS page |
+| `scale` | `chromatic` `major` `minor` `dorian` `phrygian` `lydian` `mixolydian` `pentatonic` `minorpenta` `blues` `wholetone` `harmonic`, or `S1` … `S4` | the scale; S1–S4 are XENAKIS's sieves (in LINEAGE) |
 | `mono` | `yes` / `no` | one note at a time (the newest) |
 | `glide` | 0 – 2000 | milliseconds to slide from note to note |
 | `arp` | `off` `up` `down` `updown` `random` | an arpeggio over the notes held, on the tempo |

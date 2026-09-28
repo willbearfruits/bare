@@ -22,11 +22,14 @@ SYMBOLS = {
     0xC8: '✓', 0xC9: '▸', 0xCA: '◂', 0xCB: '★', 0xCC: '☆', 0xCD: '§', 0xCE: '¶', 0xCF: '≈',
     0xD0: '▔', 0xD1: '▕', 0xD2: '▏', 0xD3: '◼', 0xD4: '◻', 0xD5: '▬', 0xD6: '⌂', 0xD7: '∞',
     0xD8: '▎', 0xD9: '▍', 0xDA: '▋', 0xDB: '▊', 0xDC: '▉', 0xDD: '×', 0xDE: '⇧',
+    0xDF: 'É', 0xE0: 'é', 0xE1: 'è', 0xE2: 'Î', 0xE3: 'ü', 0xE4: 'ö', 0xE5: '–', 0xE6: '—',   # names in the homages' panels
+    0xE7: '¢',                                                                                    # cents (CARLOS, RADIGUE)
 }
 # Fallbacks when a font lacks a glyph.
 FALLBACK = {'●': '■', '▪': '■', '□': '○', '◇': '◆', '♭': 'b', '♯': '#', '±': '+', '▸': '▶', '◂': '◀', '╭': '┌', '╮': '┐', '╰': '└', '╯': '┘', '━': '─', '┃': '│', '✓': 'v', '★': '*', '☆': '*',
             '◼': '■', '◻': '□', '▬': '■', '⌂': '^', '∞': '8', '▔': '▀', '▕': '▐', '▏': '▌',
-            '▁': '_', '▂': '_', '▃': '▄', '▅': '▄', '▆': '▀', '▇': '█', '≈': '~', '…': '.', '·': '.'}
+            '▁': '_', '▂': '_', '▃': '▄', '▅': '▄', '▆': '▀', '▇': '█', '≈': '~', '…': '.', '·': '.',
+            'É': 'E', 'é': 'e', 'è': 'e', 'Î': 'I', 'ü': 'u', 'ö': 'o', '–': '-', '—': '-', '¢': 'c'}
 
 def load_psf(path):
     data = gzip.open(path).read() if path.endswith('.gz') else open(path, 'rb').read()
@@ -171,9 +174,11 @@ def main():
              '#pragma once', '#include <stdint.h>', '',
              'struct font { uint8_t width, height, stride; const uint8_t *bits; /* 256 glyphs */ };', '']
     cp = [chr(i) if i >= 0x20 else ' ' for i in range(128)] + [SYMBOLS.get(i, ' ') for i in range(128, 256)]
-    for name, path in fonts:
-        glyphs, table, w, h = load_psf(path)
+    decls, datas = [], []
+    for name, paths in fonts:
+        glyphs, table, w, h = load_psf(paths.split('+')[0])
         stride = (w + 7) // 8
+        extras = [load_psf(pth) for pth in paths.split('+')[1:]]       # glyphs the first font lacks (same metrics)
         missing = []
         blob = bytearray()
         synthesised = []
@@ -183,6 +188,10 @@ def main():
                 made = synth(ch, glyphs, table, w, h, stride)
                 if made is not None:
                     blob += made; synthesised.append(ch); continue
+            if gi is None:
+                ex = next((e for e in extras if ch in e[1] and e[2] == w and e[3] == h), None)
+                if ex is not None:
+                    blob += ex[0][ex[1][ch]]; continue
             if gi is None and ch in FALLBACK:
                 gi = table.get(FALLBACK[ch]); missing.append(ch)
             if gi is None:
@@ -194,12 +203,15 @@ def main():
             print(f'{name}: drawn: {" ".join(synthesised)}', file=sys.stderr)
         if missing:
             print(f'{name}: fallback used for: {" ".join(missing)}', file=sys.stderr)
-        lines.append(f'static const uint8_t font_{name}_bits[{len(blob)}] = {{')
+        decls.append(f'extern const struct font font_{name};')
+        datas.append(f'static const uint8_t font_{name}_bits[{len(blob)}] = {{')
         for i in range(0, len(blob), 16):
-            lines.append('  ' + ','.join(f'0x{b:02x}' for b in blob[i:i + 16]) + ',')
-        lines.append('};')
-        lines.append(f'static const struct font font_{name} = {{ {w}, {h}, {stride}, font_{name}_bits }};')
-        lines.append('')
+            datas.append('  ' + ','.join(f'0x{b:02x}' for b in blob[i:i + 16]) + ',')
+        datas.append('};')
+        datas.append(f'const struct font font_{name} = {{ {w}, {h}, {stride}, font_{name}_bits }};')
+        datas.append('')
+    # the glyphs once, in core/font.c (which defines FONT_DATA); everyone else sees the declarations
+    lines += decls + ['', '#ifdef FONT_DATA'] + datas + ['#endif', '']
     # code page table for runtime UTF-8 lookup: sorted (codepoint, index)
     pairs = sorted((ord(SYMBOLS[i]), i) for i in SYMBOLS)
     lines.append(f'#define CODEPAGE_SYMBOLS {len(pairs)}')

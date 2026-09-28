@@ -4,12 +4,19 @@
 #include "host.h"
 #include "disk.h"
 #include "xen.h"
+#include "lineage.h"
+#include "meta.h"
+#include "drone.h"
+#include "phase.h"
 #include "upic.h"
 #include "inst.h"
 #include "synth.h"
 #include "app.h"
 #include "keys.h"
 #include "gfx.h"
+#ifndef HB_BASELINE
+#include "fkeys.h"
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -61,12 +68,18 @@ int main(int argc, char **argv) {
     /* start the first demo, hold C major, strum */
     page_key(KEY_F2); HOST_DEMO(0); host_run(40);
     page_key(KEY_F1);
-    host_key('4', true); host_run(200);
-    const char *strum = "asdfgh";
-    for (const char *s = strum; *s; s++) { host_tap((uint8_t)*s); host_run(90); }
+    host_key('6', true); host_key('h', true); host_run(200);                     /* C and its 7th: Cmaj7 */
+    const char *strum = "zxcvbn";
+    for (const char *s = strum; *s; s++) { host_key((uint8_t)*s, true); host_run(60); host_key((uint8_t)*s, false); host_run(30); }
     host_run(100);
     shot("play");
     measure("play", 2000);
+    host_key('6', false); host_key('h', false);
+#ifndef HB_BASELINE
+    host_tap(KEY_CAPS); host_key('a', true); host_key('d', true); host_run(300);   /* keyboard mode: C and E held */
+    shot("play-keyboard");
+    host_key('a', false); host_key('d', false); host_tap(KEY_CAPS); host_run(100);
+#endif
     /* the instruments from files, each played: F1 again steps to them */
     for (int k = 1; k <= inst_count; k++) {
         play_show(k); host_run(60);
@@ -101,9 +114,9 @@ int main(int argc, char **argv) {
     page_key(HOST_KEY_FILE); host_run(200); shot("file"); measure("file", 2000);
     page_key(HOST_KEY_TAPE); host_run(200); shot("tape"); measure("tape", 2000);
 #ifndef HB_BASELINE
-    host_tap('q'); host_tap('r'); host_key('4', true);                          /* a few seconds on track 1, played back */
-    for (int i = 0; i < 12; i++) { host_tap((uint8_t)"asdfghjkl;'a"[i]); host_run(250); }
-    host_key('4', false); host_tap('r'); host_tap(KEY_SPACE); host_tap('q'); host_tap(KEY_HOME); host_tap(KEY_SPACE); host_run(1500);
+    host_tap('q'); host_tap('r'); host_key('6', true);                          /* a few seconds on track 1, played back */
+    for (int i = 0; i < 12; i++) { host_tap((uint8_t)"zxcvbnm,./zx"[i]); host_run(250); }
+    host_key('6', false); host_tap('r'); host_tap(KEY_SPACE); host_tap('q'); host_tap(KEY_HOME); host_tap(KEY_SPACE); host_run(1500);
     shot("tape-playing"); measure("tape-playing", 2000);
     host_tap(KEY_SPACE);
     page_key(KEY_F8); host_run(200); shot("mix"); measure("mix", 2000);
@@ -123,7 +136,45 @@ int main(int argc, char **argv) {
     host_tap(KEY_SPACE); host_run(1500);
     shot("ans"); measure("ans", 2000);
     host_tap(KEY_SPACE); host_run(50);
-    page_key(KEY_F12);                                                              /* XENAKIS: GENDY, a chord held */
+    static const char *const lin_shots[LV_COUNT] = { [LV_REICH] = "lin-reich", [LV_CARLOS] = "lin-carlos", [LV_RADIGUE] = "lin-radigue",
+                                                     [LV_MERZBOW] = "lin-merzbow" };
+    for (int v = LV_REICH; v < LV_COUNT; v++) {
+        lineage_goto(v); host_run(200);
+#ifndef HB_BASELINE
+        if (v == LV_CARLOS) { host_key('z', true); host_key('c', true); host_key('b', true); host_run(400); }   /* a chord in alpha */
+        if (v == LV_REICH) {                                     /* three players, the second and third pulling ahead */
+            reich.players = 3; reich.hold = 1; reich.move = 2; host_tap(KEY_SPACE); host_run(3000);
+        }
+        if (v == LV_RADIGUE) {                                   /* ninety seconds of the drone, the base gliding down to G1 half way */
+            radigue.fade_s = 5; host_tap(KEY_SPACE); host_run(40000);
+            radigue.sweep_s = 30; drone_sweep_to(31000); host_run(50000);
+        }
+        if (v == LV_MERZBOW) {                                   /* 4 s: a finger scraping in strokes, junk struck, feedback at the end */
+            for (int i = 0; i < 200; i++) {
+                if (i % 30 == 0) host_tap((uint8_t)"qg.xp;"[i / 30 % 6]);
+                if (i == 150) host_key(KEY_SPACE, true);
+                if (i % 50 < 42) host_finger(0, 3000 + abs((i * 900) % 52000 - 26000), 5000 + i * 110 + (i % 7) * 400, 70 + i % 50, 0);
+                else host_finger(0, 0, 0, 0, 0);
+                host_run(20);
+            }
+        }
+#endif
+        shot(lin_shots[v]); measure(lin_shots[v], 1000);
+#ifndef HB_BASELINE
+        if (v == LV_CARLOS) { host_key('z', false); host_key('c', false); host_key('b', false); }
+        if (v == LV_RADIGUE) drone_defaults();
+        if (v == LV_REICH) phase_defaults();
+        if (v == LV_MERZBOW) { host_key(KEY_SPACE, false); host_finger(0, 0, 0, 0, 0); host_tap(KEY_BACKSPACE); }
+#endif
+        host_run(100);
+    }
+    page_key(KEY_F12);                                                              /* XENAKIS: METASTASEIS, playing */
+#ifndef HB_BASELINE
+    meta.pos = (uint32_t)20000 << 16; meta.playing = true; host_run(1500);
+    shot("xen-meta"); measure("xen-meta", 2000);
+    meta.playing = false; host_run(100);
+#endif
+    xen_goto(XV_GENDY); host_run(40);                                               /* GENDY, a chord held */
     host_key('z', true); host_key('b', true); host_run(600);
     shot("xen-gendy"); measure("xen-gendy", 2000);
     host_key('z', false); host_key('b', false); host_run(50);
@@ -146,6 +197,20 @@ int main(int argc, char **argv) {
     xen_goto(XV_SIEVES); host_tap(KEY_DOWN); host_tap(KEY_TAB); host_tap(KEY_SPACE); host_run(2300);   /* the SIEVE rhythm playing */
     shot("xen-sieves"); measure("xen-sieves", 2000);
     host_tap(KEY_SPACE); host_run(50);
+    /* the keys made one's own (F2 SHRUTI, F3 UPIC, F6 off, F9 CLOUDS): FILE's KEYS view, then UPIC's tab being dragged */
+    static const char keys[] = "F2 SHRUTI\nF3 UPIC\nF6 off\nF9 CLOUDS\n";
+    char err[80]; fkeys_parse(keys, (int)sizeof keys - 1, fkeys, err, sizeof err);
+    page_key(KEY_F2); host_run(100);
+    file_show_keys(); page_key(KEY_F7); host_tap(KEY_DOWN); host_tap(KEY_DOWN); host_run(200);
+    shot("file-keys");
+    int tx, tw; ui_tab(2, &tx, &tw);
+    int py = text_font()->height / 2 * 32768 / h, px0 = (text_px(tx) + 4) * 32768 / w;
+    host_pointer(px0, py, 1); host_run(40);
+    host_pointer(px0 - 8 * text_font()->width * 32768 / w, py, 1); host_run(40);
+    host_pointer(px0 - 14 * text_font()->width * 32768 / w, py, 1); host_run(40);
+    shot("keys-drag");
+    host_pointer(px0 - 14 * text_font()->width * 32768 / w, 20000, 0); host_run(40);   /* let go below the bar: nothing moves */
+    fkeys_default(fkeys);
 #endif
     host_key('4', false);
     return 0;

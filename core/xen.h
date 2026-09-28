@@ -1,20 +1,17 @@
 #pragma once
-/* The XENAKIS page's views (core/page_xen.c holds the page): each is a file, core/page_<view>.c, with the hooks of a
-   page, drawn below the page's view bar. */
-#include "ui.h"
+/* XENAKIS, a lineage inside LINEAGE (core/page_xen.c holds its set): Iannis Xenakis's ways of making music, each a view
+   of its own, core/page_<view>.c (see views.h). Their bar is row 2, under LINEAGE's; the views start below it. */
+#include "views.h"
 
-struct xen_view {
-    const char *name;
-    bool (*key_event)(uint8_t code, bool down, uint64_t now);
-    bool (*typing)(void);                                 /* optional */
-    void (*pointer)(uint64_t now);                        /* optional: the pointer, and the touchpad's fingers (the page owns the pad) */
-    void (*draw)(uint64_t now);
-    bool (*midi)(uint8_t note, uint8_t vel, uint64_t now);   /* optional */
-};
-extern const struct xen_view xen_upic, xen_gendy, xen_cloud, xen_sieve;
-enum { XV_UPIC, XV_GENDY, XV_CLOUDS, XV_SIEVES, XV_COUNT };
-int  xen_current(void);                                   /* the view showing */
+#define XEN_TOP 3                                         /* the first row under both bars */
+extern const struct view xen_meta, xen_upic, xen_gendy, xen_cloud, xen_sieve;
+extern const struct view lin_xen;                         /* XENAKIS, as LINEAGE's view: this set */
+enum { XV_META, XV_CLOUDS, XV_SIEVES, XV_UPIC, XV_GENDY, XV_COUNT };   /* in the order of their music */
+const struct viewset *xen_views(void);
+int  xen_current(void);                                   /* the view showing (when XENAKIS shows) */
+const char *xen_view_name(int view);
 void xen_goto(int view);
+void xen_again(void);                                     /* the next view: its key pressed again */
 
 /* a line of a view's picture: thicker on 4K screens, where the text is doubled */
 void xen_line(int x0, int y0, int x1, int y1, uint8_t c);

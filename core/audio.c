@@ -1,4 +1,9 @@
 #include "audio.h"
+#include "lineage.h"
+#include "meta.h"
+#include "junk.h"
+#include "drone.h"
+#include "phase.h"
 #include "synth.h"
 #include "seq.h"
 #include "rhythm.h"
@@ -138,6 +143,10 @@ void audio_init(uint32_t r) {
     ans_init(rate);
     cloud_init(rate);
     upic_init(rate);
+    meta_init(rate);
+    junk_init(rate);
+    drone_init(rate);
+    phase_init(rate);
     fx_init(rate);
     synth_init(rate);
     rhythm_init(rate);
@@ -213,9 +222,11 @@ static void render_block(int16_t *out, uint32_t n) {
     int32_t il[SYNTH_BLOCK], ir[SYNTH_BLOCK];
     size_t bytes = n * sizeof L[0];
     memset(L, 0, bytes); memset(R, 0, bytes); memset(cl, 0, bytes); memset(cr, 0, bytes); memset(send, 0, bytes); memset(rsend, 0, bytes);
-    static const uint8_t bus_ch[SYNTH_BUSES] = { CH_PLAY, CH_SEQ, CH_RHYTHM, CH_UPIC, CH_CLOUD, CH_DOOM };
+    static const uint8_t bus_ch[SYNTH_BUSES] = { CH_PLAY, CH_SEQ, CH_RHYTHM, CH_UPIC, CH_CLOUD, CH_DOOM, CH_LINEAGE };
     uint32_t active = synth_render(bl, br, n);               /* a bit per bus that has voices */
     if (doomsnd_render(bl[BUS_DOOM], br[BUS_DOOM], n, active >> BUS_DOOM & 1)) active |= 1u << BUS_DOOM;   /* its effects */
+    if (meta_render(bl[BUS_UPIC], br[BUS_UPIC], n, active >> BUS_UPIC & 1)) active |= 1u << BUS_UPIC;     /* METASTASEIS's strings */
+    if (lineage_render(bl[BUS_LINEAGE], br[BUS_LINEAGE], n, active >> BUS_LINEAGE & 1)) active |= 1u << BUS_LINEAGE;   /* the homages' own engines */
     for (int b = 0; b < SYNTH_BUSES; b++)
         if (active >> b & 1) mix_block(bus_ch[b], bl[b], br[b], n, L, R, cl, cr, send, false); else mix_idle(bus_ch[b], n);
     if (touch_render(xl, xr, n)) mix_block(CH_TOUCH, xl, xr, n, L, R, cl, cr, send, false); else mix_idle(CH_TOUCH, n);
@@ -304,16 +315,18 @@ void audio_render(int16_t *out, uint32_t frames) {
         if (lnk.on) link_audio_block(heard_us + (int64_t)done * 1000000 / rate, MIN(frames, (uint32_t)SYNTH_BLOCK));
         seq_run_events();                       /* everything due at exactly this frame */
         rhythm_run_events();
-        uint32_t n = MIN(seq_next_event(), rhythm_next_event());
+        lineage_run_events();                   /* REICH's players */
+        uint32_t n = MIN(MIN(seq_next_event(), rhythm_next_event()), lineage_next_event());
         if (n > frames) n = frames;
         if (n > SYNTH_BLOCK) n = SYNTH_BLOCK;
         if (n == 0) n = 1;
         cloud_block(n);                         /* the clouds' notes: begin, slide, end */
         upic_block(n);                          /* UPIC's cursor and the arcs it meets */
         inst_block(n);                          /* the instrument showing: its chords, glides, arpeggio */
+        lineage_block(n);                       /* the homages: CARLOS's glide, REICH's players */
         doomsnd_block(n);                       /* Doom's music */
         render_block(out, n);
-        seq_advance(n); rhythm_advance(n); midi_clock_run(n);
+        seq_advance(n); rhythm_advance(n); lineage_advance(n); midi_clock_run(n);
         frames_done += n; done += n;
         out += 2 * n; frames -= n;
     }

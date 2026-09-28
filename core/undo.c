@@ -1,4 +1,5 @@
 #include "undo.h"
+#include "meta.h"
 #include "ans.h"
 #include "seq.h"
 #include "wave.h"
@@ -83,6 +84,7 @@ static uint32_t size_of(int kind, int index, uint32_t *aux) {
     case U_SIEVE:   return SIEVE_TEXT + 1;
     case U_CLOUD:   return sizeof(struct cloud);
     case U_UPIC:    return 4 + sizeof(struct upic_arc) * upic.narcs + sizeof(struct upic_pt) * upic.npts;   /* what the page uses */
+    case U_META:    return sizeof meta.fam;
     }
     return 0;
 }
@@ -107,6 +109,7 @@ static void capture(int kind, int index, uint8_t *d) {
         memcpy(d, &na, 2); memcpy(d + 2, &np, 2);
         memcpy(d + 4, upic.d.arc, sizeof(struct upic_arc) * na); memcpy(d + 4 + sizeof(struct upic_arc) * na, upic.d.pt, sizeof(struct upic_pt) * np);
         break; }
+    case U_META: memcpy(d, meta.fam, sizeof meta.fam); break;
     }
 }
 static void restore(const struct rec *r) {
@@ -146,6 +149,7 @@ static void restore(const struct rec *r) {
         plat_irq_restore(st);
         break; }
     case U_CLOUD: { bool on = clouds[r->index & 3].on; memcpy(&clouds[r->index & 3], d, sizeof clouds[0]); clouds[r->index & 3].on = on; break; }   /* playing or not stays */
+    case U_META: memcpy(meta.fam, d, sizeof meta.fam); meta_compile(); break;
     }
 }
 

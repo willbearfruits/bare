@@ -65,7 +65,7 @@ $(KERNEL): $(OBJ) boot/$(ARCH)/linker.lds
 	$(LD) $(LDFLAGS) $(OBJ) -o $@
 
 core/font.h: tools/psf2c.py
-	python3 tools/psf2c.py $@ t8x16:/usr/share/kbd/consolefonts/ter-u16n.psf.gz t12x24:/usr/share/kbd/consolefonts/ter-u24n.psf.gz
+	python3 tools/psf2c.py $@ t8x16:/usr/share/kbd/consolefonts/ter-u16n.psf.gz+/usr/share/kbd/consolefonts/ter-116n.psf.gz t12x24:/usr/share/kbd/consolefonts/ter-u24n.psf.gz+/usr/share/kbd/consolefonts/ter-124n.psf.gz
 core/inst_builtin.c: tools/txt2c.py $(wildcard instruments/*.txt)
 	python3 tools/txt2c.py $@ $(wildcard instruments/*.txt)
 
@@ -105,16 +105,39 @@ doom-img: $(BUILD)/$(NAME)-doom.img   ## the stick image with Freedoom in its DO
 $(BUILD)/$(NAME)-doom.img: $(KERNEL) $(KERNEL64) tools/mkimage.py $(FREEDOOM)
 	python3 tools/mkimage.py $(KERNEL) $@ --kernel64 $(KERNEL64) --doom $(FREEDOOM)
 
-RELEASE := $(shell sed -n 's/^\#define BARE_RELEASE "\(.*\)".*/\1/p' core/app.h)
-DIST    := build/dist/$(NAME)-$(RELEASE)
-dist: $(IMG) $(ISO) $(UPD)  ## release files in build/dist/bare-RELEASE/: stick image, ISO, update files, notes, sums
+# the release and its stage (core/app.h): the files are named 1.0-beta, the tag v1.0-beta; a final release, 1.0
+RELEASE := $(shell sed -n 's/^\#define BARE_RELEASE *"\([^"]*\)".*/\1/p' core/app.h)
+STAGE   := $(strip $(shell sed -n 's/^\#define BARE_STAGE *"\([^"]*\)".*/\1/p' core/app.h))
+VNAME   := $(RELEASE)$(if $(STAGE),-$(STAGE))
+DIST    := build/dist/$(NAME)-$(VNAME)
+# the floppy: GRUB boots it (Limine can't read a floppy drive). GRUB 2.14 comes from Arch's package, unpacked into
+# build/grub (not installed): its boot sector, its modules and grub-mkimage.
+GRUB_PKG := https://archive.archlinux.org/packages/g/grub/grub-2:2.14-1-x86_64.pkg.tar.zst
+GRUB_SUM := 2b223178ee9bd0607bc4377af4deb8571fca9c59907154a55a5fad404ff7d305
+GRUB     := build/grub/usr/lib/grub/i386-pc/boot.img
+grub: $(GRUB)              ## GRUB 2.14 for the floppy, into build/grub
+$(GRUB):
+	mkdir -p build/grub
+	curl -sSL -o build/grub/grub.pkg.tar.zst $(GRUB_PKG)
+	echo "$(GRUB_SUM)  build/grub/grub.pkg.tar.zst" | sha256sum -c --quiet -
+	tar --zstd -xf build/grub/grub.pkg.tar.zst -C build/grub usr/lib/grub/i386-pc usr/bin/grub-mkimage
+	touch $@
+
+FLOPPY := build/i386/$(NAME)-floppy.img
+floppy: $(FLOPPY)          ## build/i386/bare-floppy.img: a 1.44 MB diskette for BIOS PCs (plays, can't save)
+$(FLOPPY): build/i386/bare.elf tools/mkfloppy.py LICENSE NOTICE.md | $(GRUB)
+	python3 tools/mkfloppy.py build/grub build/i386/bare.elf $@ 1440
+
+dist: $(IMG) $(ISO) $(UPD) $(FLOPPY)  ## release files in build/dist/bare-RELEASE/: stick image (.img .img.xz .img.zip), ISO, floppy, updates, sums
 	rm -rf $(DIST) && mkdir -p $(DIST)
-	cp $(IMG) $(DIST)/$(NAME)-$(RELEASE).img
-	cp $(ISO) $(DIST)/$(NAME)-$(RELEASE).iso
+	cp $(IMG) $(DIST)/$(NAME)-$(VNAME).img
+	cp $(FLOPPY) $(DIST)/$(NAME)-$(VNAME)-floppy.img
+	xz -T0 -9 -c $(IMG) > $(DIST)/$(NAME)-$(VNAME).img.xz
+	cd $(DIST) && zip -9 -q $(NAME)-$(VNAME).img.zip $(NAME)-$(VNAME).img
+	cp $(ISO) $(DIST)/$(NAME)-$(VNAME).iso
 	cp $(UPD) $(DIST)/BARE.UPD
-	cp $(UPD) $(DIST)/HOMEBREW.UPD
 	cp -r CHANGES.md LICENSE NOTICE.md LICENSES $(DIST)/
-	cd $(DIST) && sha256sum *.img *.iso BARE.UPD HOMEBREW.UPD CHANGES.md > SHA256SUMS
+	cd $(DIST) && sha256sum *.img *.img.xz *.img.zip *.iso BARE.UPD CHANGES.md > SHA256SUMS
 	@ls -l $(DIST)
 
 upd: $(UPD)                 ## update file: drop it as BARE.UPD on any FAT drive
@@ -164,4 +187,4 @@ theme-shots: $(HOST_OUT)/shots   ## every page in every colour scheme at 1280x80
 	@cd $(HOST_OUT)/out/themes && for f in *.ppm; do magick $$f $${f%.ppm}.png && rm $$f; done
 	@python3 tools/theme_sheets.py $(HOST_OUT)/out/themes
 
-.PHONY: all img upd dist run run-img run-p2 usb clean test video bench render shots theme-shots freedoom doom-img FORCE
+.PHONY: all img upd dist grub floppy run run-img run-p2 usb clean test video bench render shots theme-shots freedoom doom-img FORCE

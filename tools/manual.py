@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The manual, to read on screen or print: README.md, INSTRUMENTS.md and NOTICE.md laid out as chapters, one for each
+"""The manual, to read on screen or print: MANUAL.md, INSTRUMENTS.md and NOTICE.md laid out as chapters, one for each
 page of the instrument with its picture (in the CREAM colours, which are kind to paper and ink), headings in BARE!'s
 own screen font drawn as vector pixels (tools/pixelfont.py), and a map of the keyboard. Chromium turns the HTML into
 an A4 PDF; a second pass puts the page numbers into the contents.
-Usage: tools/manual.py [OUT.pdf]      (default build/manual/bare-manual-RELEASE.pdf)
+Usage: tools/manual.py [OUT.pdf]      (default build/manual/bare-manual-RELEASE.pdf, the release as the files name it: 1.0-beta)
 Needs build/host/shots (make build/host/shots), Chromium and ImageMagick; fetches IBM Plex into build/fonts once."""
 import html, os, re, subprocess, sys, urllib.request
 
@@ -12,10 +12,12 @@ sys.path.insert(0, HERE + '/tools')
 import pixelfont
 
 BUILD = f'{HERE}/build/manual'
-RELEASE = re.search(r'#define BARE_RELEASE "([^"]+)"', open(f'{HERE}/core/app.h').read()).group(1)
-STAGE = 'beta'                                              # '' once a release is final
+APP = open(f'{HERE}/core/app.h').read()
+RELEASE = re.search(r'#define BARE_RELEASE\s+"([^"]+)"', APP).group(1)
+STAGE = re.search(r'#define BARE_STAGE\s+"([^"]*)"', APP).group(1).strip()      # '' once a release is final
 LABEL = f'{RELEASE} {STAGE}'.strip()
-OUT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else f'{BUILD}/bare-manual-{RELEASE}.pdf'
+VNAME = f'{RELEASE}-{STAGE}' if STAGE else RELEASE
+OUT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else f'{BUILD}/bare-manual-{VNAME}.pdf'
 URL = 'github.com/willbearfruits/bare'
 
 # ---------------------------------------------------------------- pictures
@@ -142,9 +144,9 @@ def md(text, lead=False):
         out.append(f'<p{" class=\"lead\"" if first else ""}>{inline(" ".join(para))}</p>'); first = False
     return '\n'.join(out)
 
-# ---------------------------------------------------------------- the README, cut into its parts
-def readme_parts():
-    src = open(f'{HERE}/README.md').read()
+# ---------------------------------------------------------------- MANUAL.md, cut into its parts
+def manual_parts():
+    src = open(f'{HERE}/MANUAL.md').read()
     secs = {}
     for m in re.finditer(r'^## ([^\n]+)\n(.*?)(?=^## |\Z)', src, re.M | re.S): secs[m.group(1).strip()] = m.group(2)
     intro = src[src.index('\n', src.index('# BARE!')):src.index('## ')]
@@ -169,21 +171,20 @@ def px(text, cls='px', font='ter-u32b'): return pixelfont.svg(text, font, cls)
 def keyboard():
     """the laptop keyboard as PLAY and the F keys have it"""
     U, G = 11.4, 0.6                                         # a key unit and the gap between keys, in mm
-    pages = ['PLAY', 'SEQ', 'WAVE', 'STRETCH', 'OPERATOR', 'TAPE', 'FILE', 'MIX', 'TOUCH', 'FX', 'ANS', 'XENAKIS']
-    chords = ['E♭', 'B♭', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'D♭', 'A♭']
+    pages = ['PLAY', 'SEQ', 'WAVE', 'STRETCH', 'OPERATOR', 'TAPE', 'FILE', 'MIX', 'TOUCH', 'FX', 'LINEAGE', 'XENAKIS']
+    roots = ['D♭', 'A♭', 'E♭', 'B♭', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F♯']       # the OM-108's buttons, on three rows
     rows = [
         [('Esc', 1, 'fn', 'stop all'), (None, .5)] + [(f'F{k + 1}', 1, 'page', pages[k]) for k in range(4)] + [(None, .5)]
         + [(f'F{k + 1}', 1, 'page', pages[k]) for k in range(4, 8)] + [(None, .5)] + [(f'F{k + 1}', 1, 'page', pages[k]) for k in range(8, 12)],
-        [('`', 1, '', '')] + [(c, 1, 'chord', chords[k]) for k, c in enumerate('1234567890-=')] + [('⌫', 2, '', '')],
-        [('Tab', 1.5, 'fn', 'bass'), ('Q', 1, 'type', 'major'), ('W', 1, 'type', 'minor'), ('E', 1, 'type', 'seventh'),
-         ('R', 1, 'fn', 'rhythm')] + [(c, 1, '', '') for c in 'TYUIOP'] + [('[', 1, 'fn', 'pattern'), (']', 1, 'fn', 'pattern'), ('\\', 1.5, '', '')],
-        [('Caps', 1.75, '', '')] + [(c, 1, 'string', str(11 + k)) for k, c in enumerate("ASDFGHJKL;'")] + [('Enter', 2.25, '', '')],
+        [('`', 1, 'fn', 'hold')] + [(c, 1, 'major', roots[k]) for k, c in enumerate('1234567890-=')] + [('⌫', 2, 'fn', 'off')],
+        [('Tab', 1.5, 'fn', 'auto')] + [(c, 1, 'minor', roots[k]) for k, c in enumerate('QWERTYUIOP[]')] + [('\\', 1.5, 'seventh', roots[11])],
+        [('Caps', 1.75, 'fn', 'keyboard')] + [(c, 1, 'seventh', roots[k]) for k, c in enumerate("ASDFGHJKL;'")] + [('Enter', 2.25, 'seventh', roots[11])],
         [('Shift', 2.25, 'mod', 'functions')] + [(c, 1, 'string', str(1 + k)) for k, c in enumerate('ZXCVBNM,./')] + [('Shift', 2.75, 'mod', 'functions')],
-        [('Ctrl', 1.5, 'mod', 'Ctrl+1…= pages'), ('Alt', 1.25, '', ''), ('Space', 6.25, 'fn', 'hold the chord'), ('Alt', 1.25, '', ''),
-         ('←', 1, '', ''), ('↑', 1, 'fn', 'octave'), ('↓', 1, 'fn', 'octave'), ('→', 1, '', '')],
+        [('Ctrl', 1.5, 'mod', 'Ctrl+1…= pages'), ('Alt', 1.25, '', ''), ('Space', 6.25, 'fn', 'rhythm'), ('Alt', 1.25, '', ''),
+         ('←', 1, 'fn', 'pattern'), ('↑', 1, 'fn', 'octave'), ('↓', 1, 'fn', 'octave'), ('→', 1, 'fn', 'pattern')],
     ]
-    fills = {'page': '#f4d6c3', 'chord': '#f0e3c7', 'type': '#e6cf9f', 'string': '#dde6cf', 'fn': '#ebe6dd', 'mod': '#ffffff', '': '#ffffff'}
-    inks = {'page': '#b3471f', 'chord': '#7a5a1e', 'type': '#7a5a1e', 'string': '#4d6b35', 'fn': '#5d544a', 'mod': '#5d544a', '': '#5d544a'}
+    fills = {'page': '#f4d6c3', 'major': '#f0e3c7', 'minor': '#e6cf9f', 'seventh': '#dcc08a', 'string': '#dde6cf', 'fn': '#ebe6dd', 'mod': '#ffffff', '': '#ffffff'}
+    inks = {'page': '#b3471f', 'major': '#7a5a1e', 'minor': '#7a5a1e', 'seventh': '#6a4b12', 'string': '#4d6b35', 'fn': '#5d544a', 'mod': '#5d544a', '': '#5d544a'}
     out, y = [], 0.0
     for r, row in enumerate(rows):
         h = U * (0.8 if r == 0 else 1)
@@ -200,7 +201,7 @@ def keyboard():
             x += U * w
         y += h + (1.6 if r == 0 else 0)
     width = U * 15 - G
-    legend = [('page', 'the pages'), ('chord', 'chord roots'), ('type', 'major, minor, seventh'), ('string', 'the 21 sonic strings'), ('fn', 'on PLAY')]
+    legend = [('page', 'the pages'), ('major', 'MAJOR'), ('minor', 'MINOR'), ('seventh', '7th'), ('string', 'strings (13 on the pad)'), ('fn', 'on PLAY')]
     lx, ly = 0.0, y + 3.5
     for kind, name in legend:
         out.append(f'<rect x="{lx:.2f}" y="{ly - 2.4:.2f}" width="3" height="3" rx=".5" fill="{fills[kind]}" stroke="#3b332b" stroke-width=".2"/>')
@@ -214,7 +215,7 @@ def figure(src, caption, cls='screen'):
 
 # ---------------------------------------------------------------- the chapters
 def chapters():
-    intro, secs, keys_general, b = readme_parts()
+    intro, secs, keys_general, b = manual_parts()
     S = shots(); I = frames()
     ch = []
     def page(fkey, name, kicker, lead_block, rest='', pic=None, alt=None, subs=()):
@@ -252,13 +253,16 @@ def chapters():
     page('F8', 'MIX', 'the mixer and its effects', b['MIX page'], pic='mix', subs=[('Input', b['Input'], None)])
     page('F9', 'TOUCH', 'a crackle box', b['TOUCH page'], pic='touch')
     page('F10', 'FX', 'effects to play live', b['FX page'], pic='fx')
-    page('F11', 'ANS', 'light into sound', b['ANS page'], pic='ans')
-    xen = b['XENAKIS page']
-    xen_lead, xen_list = xen.split('\n\n', 1) if '\n\n' in xen else (xen, '')
-    views = re.findall(r'^- \*\*(\w+)\*\* — (.*?)(?=^- \*\*|\Z)', xen_list, re.M | re.S)
-    pics = {'GENDY': 'xen-gendy', 'CLOUDS': 'xen-clouds', 'SIEVES': 'xen-sieves', 'UPIC': 'xen-upic'}
-    page('F12', 'XENAKIS', 'GENDY, clouds, sieves, UPIC', xen_lead, pic=None,
-         subs=[(v, (lambda s: s[:1].upper() + s[1:])(' '.join(l.strip() for l in t.split('\n'))), pics.get(v)) for v, t in views])
+    def with_views(block):                                   # a page of views: its lead, then a view each
+        lead, lst = block.split('\n\n', 1) if '\n\n' in block else (block, '')
+        return lead, re.findall(r'^- \*\*(\w+)\*\* — (.*?)(?=^- \*\*|\Z)', lst, re.M | re.S)
+    para = lambda t: (lambda s: s[:1].upper() + s[1:])(' '.join(l.strip() for l in t.split('\n')))
+    lin_lead, views = with_views(b['LINEAGE page'])
+    pics = {'ANS': 'ans', 'REICH': 'lin-reich', 'CARLOS': 'lin-carlos', 'RADIGUE': 'lin-radigue', 'MERZBOW': 'lin-merzbow'}
+    page('F11', 'LINEAGE', 'Xenakis, ANS, Reich, Carlos, Radigue, Merzbow', lin_lead, pic=None, subs=[(v, para(t), pics.get(v)) for v, t in views])
+    xen_lead, views = with_views(b['XENAKIS'])
+    pics = {'METASTASEIS': 'xen-meta', 'GENDY': 'xen-gendy', 'CLOUDS': 'xen-clouds', 'SIEVES': 'xen-sieves', 'UPIC': 'xen-upic'}
+    page('F12', 'XENAKIS', 'in LINEAGE: Metastaseis, clouds, sieves, UPIC, GENDY', xen_lead, pic=None, subs=[(v, para(t), pics.get(v)) for v, t in views])
     doom = f'<p class="lead">{inline(lead_of(b["Doom"]).replace(chr(10), " "))}</p>'
     if os.path.exists(f'{I}/doom.png'): doom += f'<div class="grid2">{figure(f"{I}/doom-title.png", "Freedoom, from the stick")}{figure(f"{I}/doom.png", "E1M1, in BARE!")}</div>'
     ch.append(('doom', 'DOOM', 'iddqd', None, doom))
@@ -297,11 +301,11 @@ def book(pages=None):
     cover = (f'<section class="cover"><div class="ctop"><span>manual</span><span>version {LABEL} · 2026</span></div>'
              f'<div class="clogo">{px("BARE!", "px big")}</div><p class="ctag">a synthesizer with no operating system</p>'
              + '<div class="cpanel">' + ''.join(f'<span><kbd>F{k + 1}</kbd>{n}</span>' for k, n in enumerate(
-                 ['PLAY', 'SEQ', 'WAVE', 'STRETCH', 'OPERATOR', 'TAPE', 'FILE', 'MIX', 'TOUCH', 'FX', 'ANS', 'XENAKIS'])) + '</div>'
+                 ['PLAY', 'SEQ', 'WAVE', 'STRETCH', 'OPERATOR', 'TAPE', 'FILE', 'MIX', 'TOUCH', 'FX', 'LINEAGE', 'XENAKIS'])) + '</div>'
              f'<figure class="cshot"><img src="{S}/play.png" alt=""></figure>'
              f'<div class="cfoot"><span>willbearfruits</span><span>free software · GPL-3.0</span><span>{URL}</span></div></section>')
     back = (f'<section class="back"><pre class="ascii">{html.escape(chr(10).join(LOGO))}</pre>'
-            f'<p>BARE! {LABEL} · the manual, made from the README of {URL}.<br>Printed or on screen, it is free like the '
+            f'<p>BARE! {LABEL} · the manual, made from MANUAL.md at {URL}.<br>Printed or on screen, it is free like the '
             'instrument: GPL-3.0-or-later.</p></section>')
     contents = f'<section class="contents"><header class="head">{px("CONTENTS")}</header><ol class="toc">{toc}</ol></section>'
     css = open(f'{fonts()}/fonts.css').read().replace("url('", f"url('file://{HERE}/build/fonts/")

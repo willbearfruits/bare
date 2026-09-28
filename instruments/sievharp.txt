@@ -1,4 +1,4 @@
-# SIEVEHARP: a harp tuned to a sieve (S1 on the XENAKIS page's SIEVES view): the letter rows play its steps upward,
+# SIEVEHARP: a harp tuned to a sieve (S1 on XENAKIS's SIEVES view, in LINEAGE): the letter rows play its steps upward,
 # and held notes fall down it at random. Change S1, and the harp is retuned.
 
 name: SIEVHARP

@@ -3,6 +3,7 @@
    sixteenth the sieve keeps and plays as many notes there as the density gives on average; the notes sounding slide
    (their bend, every other block) and end. A note is a synth voice tagged 0x800 | cloud << 6 | slot. */
 #include "cloud.h"
+#include "harmony.h"
 #include "sieve.h"
 #include "synth.h"
 #include "seq.h"
@@ -81,6 +82,7 @@ void cloud_draw(int k, uint32_t *r, struct cloud_note *out) {
     else p = lo + (int32_t)(((uint64_t)(rnd_of(r) >> 8) * (uint32_t)(hi - lo)) >> 24);
     p = CLAMP(p, lo, hi);
     if (c->pitch_sieve >= 0) p = sieve_snap_pitch(&sieves[c->pitch_sieve], p);
+    else p = harmony_snap_q8(p);                              /* keys follow the chord: the clouds too */
     out->pitch = CLAMP(p, 0, 127 * 256);
     uint32_t ms = cloud_length_ms(c);
     int32_t z = (int32_t)(((int64_t)gauss_of(r) * c->spread * 12 * 256 / 100) >> 12);   /* lengths an octave apart, at 100 */

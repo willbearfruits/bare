@@ -9,7 +9,9 @@ framebuffer, plays through Intel HDA, AC97 or a Sound Blaster 16 (PC-speaker 1-b
 stick via BIOS int 13h or its own USB stack. It was called homebrew until 2.2: the on-disk magics (`HBTAPE01`,
 `HBPROJ01`, `HBVER001`, `HBUPD002`, the `HB_A.ELF` slots) and `tools/hb.py` keep the old initials. The "!" stays out of
 file names, identifiers and the boot menu (in a shell, `!` is history expansion).
-The README is the user manual and the roadmap; keep it in sync when adding pages, keys, or sounds.
+MANUAL.md is the user manual and the roadmap (`tools/manual.py` makes the PDF from it); README.md is the short front
+page (the pages in a table, what the release added, how to try it) and BUILDING.md the developer's side (toolchain,
+make targets, the layout). Keep them in sync when adding pages, keys, or sounds.
 
 ## Build / run / test
 
@@ -18,12 +20,13 @@ checks (`pacman -S clang lld limine xorriso qemu-desktop terminus-font lib32-gli
 
 ```
 make                 # build/i386/bare.iso (default ARCH=i386)
+make floppy          # build/i386/bare-floppy.img: 1.44 MB diskette, GRUB-booted (make grub fetches Arch's GRUB 2.14)
 make ARCH=x86_64     # 64-bit build in build/x86_64/ (ISO only; its storage is the USB stack)
 make img             # build/i386/bare.img — USB image with persistent project partition (the real product)
 make upd             # build/i386/bare.upd — A/B update file (BARE.UPD on any FAT drive; HOMEBREW.UPD, 1.0-2.2's name, too)
-make dist            # build/dist/bare-RELEASE/: stick image, ISO, BARE.UPD + HOMEBREW.UPD, CHANGES.md, SHA256SUMS
+make dist            # build/dist/bare-1.0-beta/: stick image (.img .img.xz .img.zip), ISO, floppy, BARE.UPD, SHA256SUMS
 make run / run-img   # boot ISO / disk image in QEMU with GTK display, PipeWire audio, serial log on stdout
-make run-p2          # emulated Pentium II, no KVM: proves the i686 build has no SSE/687 leaks
+make run-p2          # emulated Pentium II, no KVM: proves the i686 build has no SSE/x87 leaks
 make usb DEV=/dev/sdX   # flash a stick, preserving its project partition (sudo)
 make test            # pass/fail checks on the host (test/check.c) against a scratch copy of the .img grown by 64 MiB,
                      # run twice: as a 512 MB PC, then with HOST_MEM=28 as a 32 MB one
@@ -33,9 +36,10 @@ make shots           # every page at 800x600, 1024x768, 1280x800, 1366x768, 1280
 make render          # WAVs + level/clip/DC/stereo figures + sequencer timing → build/host/out/wav
 make video           # test/video.c: a scripted 70-second performance → build/host/out/showcase.mp4 (ffmpeg);
                      # its script is a list of timed key/pointer events — update it when pages or keys move
-                     # (other modes: --fx --ans --xen --inst --shruti --touch --themes --seq, --file IMG, --doom IMG,
-                     # --splash N, --card TITLE LINE SECONDS; tools/showcase.py records them all into one long video)
-tools/manual.py      # the manual: README/INSTRUMENTS/NOTICE as an A4 PDF (Chromium), CREAM pictures, pixel headings
+                     # (other modes: --fx --ans --lineage --xen --inst --shruti --touch --themes --seq, --file IMG,
+                     # --e1m1 IMG, --doom IMG, --splash N, --card TITLE LINE SECONDS; tools/showcase.py records them
+                     # all into one long video)
+tools/manual.py      # the manual: MANUAL/INSTRUMENTS/NOTICE as an A4 PDF (Chromium), CREAM pictures, pixel headings
 tools/site.py        # the web page (build/site, for GitHub Pages), NIGHT pictures, the loop and the showcase
 make freedoom        # Freedoom 0.13.0 (BSD) → build/freedoom: the `doom` checks, `make render`'s doom-e1m1.wav
 make doom-img        # build/i386/bare-doom.img: the stick image with freedoom1.wad in DOOM/ (mkimage.py --doom)
@@ -43,8 +47,8 @@ make clean
 ```
 
 One check group at a time (names in `test/check.c:main`: audio, timing, stretch, keys, project, sampler, mix, tape,
-tracker, fx, midi, fm, undo, usb, net, link, stick, update, install, rhythm, layers, pad, touch, colours, fxpage,
-ans, xen, inst, doom, splash, ui;
+tracker, fx, midi, fm, undo, usb, net, link, stick, update, install, rhythm, omni, harmony, meta, lineage, layers, pad,
+touch, colours, fxpage, ans, xen, inst, fkeys, doom, splash, ui;
 `stick`/`update`/`install`/`doom` need the image argument; `doom` writes Freedoom onto it, or skips most of its checks
 without `make freedoom`):
 
@@ -52,7 +56,9 @@ without `make freedoom`):
 make build/host/check && CHECKS=usb,undo build/host/check build/host/check.img      # HOST_LOG=1 for the kernel log
 ```
 
-Groups run on their own after `app_init`, but some leave state behind: run the whole suite before committing.
+Groups run on their own after `app_init`, but some leave state behind: run the whole suite before committing. The image
+keeps what a run wrote (`doom` leaves its WAD there, so its "no WAD" checks fail on a second run): copy it afresh first,
+as `make test` does (`cp build/i386/bare.img build/host/check.img && truncate -s +64M build/host/check.img`).
 
 **Host harness (`test/`).** `test/host.c` implements `core/platform.h` for a Linux process: a simulated millisecond
 clock (`host_now_ms`), scripted keys and pointer (`host_key`, `host_tap`, `host_pointer`), an XRGB memory framebuffer,
@@ -61,13 +67,16 @@ and drive 0 backed by an image file. `host_run(ms)` advances time: 1 ms audio ti
 what timing measurements need. Core objects are built with the kernel's code-generation flags (i686, no SSE/x87) so
 cycle counts carry over. `test/host.mk` can also build the programs against another checkout (`HB_ROOT=… HOST_EXTRA=
 -DHB_BASELINE`) for before/after measurements; the `HOST_RENDER`/`HOST_SET_ECHO` macros in `host.h` bridge the
-old API. Prefer the harness for anything it can see (sound, timing, layout); it takes seconds.
+old API. Prefer the harness for anything it can see (sound, timing, layout); it takes seconds. A throwaway experiment
+(render a WAV, print a pattern) is a scratch `.c` compiled with the test flags (`-m32 -march=i686 -mno-sse -Icore
+-Itest`) and linked, after `make build/host/check`, with `build/host/test/host.o`, `build/host/core/*.o` and the objects
+under `build/host/third_party/doom` (`-lm`).
 
 **QEMU** for the real kernel (drivers, BIOS disk, boot):
 
 ```
-python3 tools/qemu-test.py --keys "4:1200 wait:300 a wait:150 s shot:strum" [--seconds N] [--img] [--arch x86_64] [--cpu pentium2] [--res 1024x768] [--mem 4G] [--image stick.img]
-                           [--uefi] [--usb usb-kbd,usb-hub@2,usb-tablet@2.1] [--usbmidi]
+python3 tools/qemu-test.py --keys "6:1200 wait:300 z wait:150 x shot:strum" [--seconds N] [--img] [--arch x86_64] [--cpu pentium2] [--res 1024x768] [--mem 4G] [--image stick.img]
+                           [--uefi] [--usb usb-kbd,usb-hub@2,usb-tablet@2.1] [--usbmidi] [--floppy]
 ```
 
 Key spec tokens: QEMU key names (`f2`, `spc`, `ret`), `key:MS` hold, `wait:MS`, `shot:NAME` (→ `build/<arch>/NAME.ppm`),
@@ -94,8 +103,9 @@ a directory per machine (serial log, screen, wav). QEMU's UHCI model drops packe
 fails some boots: the matrix resets and retries) and its OHCI model dies during SeaBIOS bulk writes (saving fails and
 says so) — neither is ours. Run it after changing boot, disk, audio drivers or the UI layout.
 
-The release (`BARE_RELEASE` in `core/app.h`, "2.5") is for people and `make dist`; updates compare only the build
-number. The build number (`VERSION := date +%y%m%d%H%M`) is baked into `core/app.o` behind the magic `HBVER001`; `app.o`
+The release (`BARE_RELEASE` in `core/app.h`, "1.0", and `BARE_STAGE`, " beta" until it is final) is for people:
+the screen shows both, and the Makefile, `tools/site.py`, `tools/manual.py` and `tools/mkfloppy.py` read them for the
+files' names and the tag (`1.0-beta`, `v1.0-beta`). Updates compare only the build number. The build number (`VERSION := date +%y%m%d%H%M`) is baked into `core/app.o` behind the magic `HBVER001`; `app.o`
 is relinked whenever any other object changes, and `tools/hb.py` / `tools/mkimage.py` read the number back from the ELF.
 The two kernels can carry different numbers (each arch's `app.o` is rebuilt on its own), so an `.upd` (`HBUPD002`) holds
 each kernel's number and each running kernel compares its own: an update can't loop. `make VERSION=…` overrides the
@@ -103,7 +113,9 @@ number (propagated to the 64-bit sub-make) — delete `build/*/core/app.o` after
 number until something else changes.
 
 Generated sources (regenerate rather than hand-edit): `core/font.h` from `tools/psf2c.py` (Makefile rule; it draws
-the glyphs Terminus lacks — rounded corners, eighth blocks, ●, × — from the font's own line metrics), and
+the glyphs Terminus lacks — rounded corners, eighth blocks, ●, × — from the font's own line metrics, and takes the
+Latin letters of the histories, É é è Î ü ö – — ¢, from `ter-116n`/`ter-124n` after a `+`; the glyphs themselves are
+under `FONT_DATA`, compiled once by `core/font.c`), and
 `core/tables.c` + `core/tables.h` from `python3 tools/gen_tables.py core` (sines, the filter's coefficients, GENDY's
 six step distributions, a −ln u table for Poisson waits); `core/inst_builtin.c` from `tools/txt2c.py` (Makefile rule:
 the files in `instruments/` as C strings — the built-in instruments).
@@ -119,6 +131,8 @@ through the functions declared in `core/platform.h` (`plat_*`), implemented in `
 no floats anywhere, all DSP is fixed-point (Q12/Q15/Q24). No heap; `plat_alloc` is a bump allocator for never-freed
 buffers (tape, the screen's back and front buffers). The i386 build must stay i686-clean (`make run-p2`). 64-bit
 divisions are a slow library loop on i386: keep them out of per-sample code (32-bit products and divisions there).
+`snfmt` (`core/libc.c`) takes `%d %i %u %x %X %p %s %c` with a width, `0`, `+` and `l`, but no `-`: a left-justified
+field has to be padded by hand (`%-6s` prints garbage).
 
 **Boot path:** `boot/i386/multiboot2.S` + `entry.c` (Limine loads it on BIOS and UEFI) parses memory map / framebuffer /
 boot device, starts the 1 kHz timer, PS/2, sensors, BIOS real-mode trampoline (`arch/x86/i386/bios.c`, `tramp.S`), int
@@ -138,6 +152,15 @@ notice on the text screen and run the instrument on a framebuffer in RAM (`arch/
 and sound. `blkbios.c` rebuilds the registers and the disk address packet for its one retry — a failed int 13h leaves
 the error code in AH (AH=0Ch is "seek", which succeeds without moving data).
 
+**The floppy (`tools/mkfloppy.py`, `make floppy`):** Limine can't boot one (it reads with the BIOS's extended disk
+calls, which floppy drives lack), so GRUB 2.14 does, from Arch's package unpacked into `build/grub` by `make grub`
+(sha256 checked): its `boot.img` with the FAT12 BPB written into it, a core image from `grub-mkimage` (biosdisk, fat,
+multiboot2, vbe, gzio; the embedded config is `multiboot2 /BARE.GZ`) in the reserved sectors, then one FAT12
+filesystem over the disk holding the i386 kernel stripped and gzipped, README.TXT (with GRUB's source), LICENSE.TXT
+and NOTICE.TXT. 1.44 MB (the release's) and 1.2 MB boot; 720 KB doesn't (GRUB takes the drive's 18 sectors a track
+for the disk's 9). It has nowhere to save, like the ISO. `qemu-test.py --floppy` (the `pc` machine: q35 has no
+floppy controller) and the matrix machine `bios-floppy` boot it.
+
 **Two execution contexts:**
 - *Timer interrupt (1 kHz)* — `arch/x86/platform.c:audio_tick` → the sound driver's `pump` → `audio_render` in
   128-frame chunks (without a sound chip it still renders a millisecond per tick and drives `pcspk_tone` from
@@ -155,11 +178,38 @@ runs 32 frames late, so the gain is down before a peak goes out; nothing oversho
 safety net → output and the scope rings (`audio_scope_lr`). Volume, mute and 1-bit live in the stick's tape header
 (`struct tape_hdr`, "SET1"): `disk_note_settings` keeps them current in memory every frame and they are written only
 with the header writes a project save or load makes — never on their own, since the stick may have been pulled. The PLAY
-page's rhythm section (`core/rhythm.c`) is a second event source in that loop: eight one-bar patterns written as strings
-(kick, snare, hat, and a bass lane in chord degrees), 4 steps a beat (3 for SWING), at `seq.bpm`, falling in on the
-sequencer's step when both play; its auto bass follows `omni`'s chord and `rhythm.mute` silences lanes. The **sample
-clock is the master clock**: the sequencer (`seq_run_events` / `seq_next_event` / `seq_advance`) counts frames with a Q16
-row length, and `audio_render` splits blocks at its events, so rows, ticks and note-offs land on exact samples.
+page's rhythm section (`core/rhythm.c`, after the OM-108) is a second event source in that loop: 14 one-bar patterns
+written as strings (the OM-108's two sets of five in `rhythm_sets`, and BARE!'s: POP, 16 BEAT, REGGAE, SIEVE; lanes of
+drums, percussion, a bass and chord stabs in degrees of the held chord, which play with CHORD AUTO), 4 steps a beat (3
+for the swung ones), at `seq.bpm`, falling in on the sequencer's step when both play; `rhythm_select` queues a new
+pattern for the next bar (`rhythm.next`), `rhythm.mute` silences lanes and `rhythm.classic` swaps the kit for 2.5's.
+REICH's players (`lineage_run_events` / `lineage_next_event` / `lineage_advance`, `core/phase.c`) are a third. The
+**sample clock is the master clock**: the sequencer (`seq_run_events` / `seq_next_event` / `seq_advance`) counts frames
+with a Q16 row length, and `audio_render` splits blocks at its events, so rows, ticks and note-offs land on exact samples.
+
+**Omnichord (`core/omni.c`, `core/page_play.c`):** after the Suzuki OM-108's owner's manual. `omni.held[row]` is a
+bitmask of the buttons down on the MAJOR, MINOR and 7th rows (`omni_row_keys`: the digit row, Q…], A…' with Enter or
+`\` as the twelfth; roots Db-first on the circle of fifths); `omni_recognize` (pure, checked for all combinations)
+turns them into a root and one of nine suffixes (MAJ+7 maj7, MIN+7 m7, MAJ+MIN dim, all three aug, MAJ with the 7th or
+MINOR button to its left sus4 / add9), each played as three notes (`tones[]`); a release waits `SETTLE_MS` (40) so an
+uneven let-go doesn't flash another chord. The chord is published as `omni_chord_word` (one volatile word the audio
+side and `harmony` read; `omni_chord_tones`). The strumplate is 13 strings (`OMNI_ZONES`): root, third and fifth
+folded into F#…F, four times, and the root on top; `Z`…`/` are the first ten. A voice (`omni_voices[]`, ten, plus
+CUSTOM = the ⇧←→ preset) is a main preset on the strings (TAG_MAIN 0x200 | string) and a sub (TAG_SUB 0x220 |
+string), rung for SUSTAIN (`synth_note_on_ring`); the chord pad is TAG_PAD 0x100. CHORD AUTO hands the chord and bass
+to the rhythm's lanes, HOLD keeps them, SYNC starts the rhythm with the first chord, INSTANT OFF (`omni_off`, Backspace)
+cuts with `synth_tag_cut`. KEYBOARD mode: the 7th row white keys, the MINOR row black keys (TAG_KEYS 0x240 | key; omni 1
+monophonic), the MAJOR row T, P, octave ↓ ↑ and drums (`rhythm_drum`), the strings drums (`rhythm_pad`). Transpose ±6
+(`omni_set_transpose`), master tune ±6 Hz (`synth_tune_q8`, every voice). `midi_omni_*` send it on channels 1 (strings),
+2 (chord), 3 (bass), 4 (sub) and 10 (drums) when `midi.omni_out` (FILE › MIDI `O`, settings bit 13). Saved as `OMN2`
+and `RHY2` (with `OMNI`/`RHYT` still written in 2.5's meaning, roots Eb-first, for older builds; loading those migrates).
+
+**Keys follow the chord (`core/harmony.c`, ⇧K):** `harmony_on`; `harmony_note` / `harmony_snap_q8` move a note to the
+nearest tone of the omnichord's chord (ties up, octave kept) — called by WAVE's keyboard, the instruments' keys, pads and
+strip (before `tuned`), GENDY and CLOUDS keys, a cloud's pitch (audio side), UPIC's SNAP 6, METASTASEIS's string ends,
+ANS's keys and MIDI rows, REICH's note entry, RADIGUE's base, MERZBOW's junk and `app_midi`'s note-ons (not on SEQ).
+Pages that start a note per key keep what they started, so the release lets go of it even if the chord moved. Off,
+nothing changes. `harmony_label` is the title bar's `♪ Cmaj7`. Saved as `HRM1`.
 
 **Tracker (`core/seq.c`):** `seq_pat[32]` patterns of up to 64 rows × 8 channels of `struct seq_cell` (note, inst =
 preset+1, vol = velocity+1, fx, param: all zero is an empty cell), an order list, per-channel default sound and mute.
@@ -171,13 +221,17 @@ where the next row comes from. `steps_to_rows` turns the 1.0 step format (ties, 
 ECx cut on the note's last row. The SEQ page scrolls by pages while following playback (a scrolling grid rewrites every
 row on screen each step).
 
-**Voices (`core/synth.c`):** 24 voices plus 4 tails (a stolen voice fades out there over ~3 ms). Each is started with a
+**Voices (`core/synth.c`):** 32 voices plus 4 tails (a stolen voice fades out there over ~3 ms). Each is started with a
 16-bit `tag` so groups (a chord, a track) release together, and a pan (`synth_note_on_pan`, balance law: the centre
 stays at full level). Per block, `voice_block` advances the envelope (`core/env.h`, shared with FM operators), pitch
 envelope / vibrato / thermal detune and the filter coefficient; per sample it runs one oscillator loop per wave type
 (`VOICE_LOOP`), the Chamberlin SVF, and ramps the left/right gains. Pulse waves have their DC taken out analytically;
 drawn/scanned tables have their mean subtracted. Presets `P_*` in `core/synth.h`: fixed presets, then wave-bank
-sources (DRAWN/MORPH/SCAN/ROM from `core/wave.c`), then FM1–4 which are user patches in `core/fm.c`. FM renders a
+sources (DRAWN/MORPH/SCAN/ROM from `core/wave.c`), then FM1–4 which are user patches in `core/fm.c`, then (appended, so
+projects keep their numbers) the samples, GENDY 1-4, the instruments (`P_INST1` … `P_INST_END`, `synth_is_inst`), the
+omnichord's voices and the OM-108 kit, `P_MOOG` (CARLOS rewrites it: `synth_set_preset`), `P_METAL`, `P_MARIMBA`. An FM
+preset's `src` past the bank is a fixed patch (`fm_patch_of`: FM PIANO, CELESTE, VIBES, JUNK METAL, MARIMBA;
+`FM_FIXED`). A preset's `trem` is a tremolo depth on the voice's LFO. FM renders a
 block per voice through an inner loop specialised per algorithm (`fm_loop` with constant masks); phase modulation
 wraps in 32 bits. Operator waves are 8192-entry tables. `fm_voice_start` works out each operator's velocity and key
 scaling once per note (`scale[]`, Q15); per block the patch's LFO bends the increments (on top of the tracker's
@@ -197,12 +251,14 @@ ring aligned to its size below 16 MB, 44.1 kHz with the engine's 48 kHz interpol
 with those; QEMU's AC97 model only moves with a clocked audio backend (`--audiodev none,id=snd0` records silence), not
 ALSA's null device.
 
-**Mixer and input (`core/mix.h`, the channel loop in `core/audio.c`):** voices render into six buses by tag (`v->bus`:
-0x3xx SEQ, 0x4xx RHYTHM, 0x8xx CLOUDS, 0x9xx UPIC, 0xBxxx DOOM (Doom's effects are added into that bus too), the rest
-PLAY; `bus_ch[]` maps them to channels; `synth_render` returns a bit per bus that has voices, silent buses cost
-nothing). Tags in use: 0x1xx the chord pad, 0x2xx strums, 0x5xx keyboards on pages (WAVE 0x500, GENDY 0x580 / its
-drone 0x5FF, the sieve scale 0x5C0), 0x6xx MIDI, 0xA00-0xA7F the instruments, 0xBxxx Doom's music; tests and tools use
-0x7xx. `render_block` runs each channel through `mix_block` — fader (Q12, −60…+12 dB, ramped per block), balance pan,
+**Mixer and input (`core/mix.h`, the channel loop in `core/audio.c`):** voices render into seven buses by tag (`v->bus`:
+0x3xx SEQ, 0x4xx RHYTHM, 0x8xx CLOUDS, 0x9xx UPIC, 0xBxxx DOOM (Doom's effects are added into that bus too), 0xCxx
+LINEAGE, the rest PLAY; `bus_ch[]` maps them to channels; `synth_render` returns a bit per bus that has voices, silent
+buses cost nothing; METASTASEIS (`meta_render`) and the LINEAGE engines (`lineage_render`) add into their buses after
+the voices). Tags in use: 0x1xx the chord pad, 0x2xx the strings (0x200 main, 0x220 sub, 0x240 keyboard mode), 0x5xx
+keyboards on pages (WAVE 0x500, GENDY 0x580 / its drone 0x5FF, the sieve scale 0x5C0), 0x6xx MIDI, 0xA00-0xA7F the
+instruments, 0xBxxx Doom's music, 0xC00-0xC5F CARLOS, 0xC60 | object MERZBOW's junk, 0xC80 | player << 4 | step REICH
+(0xCF0 its note preview); tests and tools use 0x7xx. `render_block` runs each channel through `mix_block` — fader (Q12, −60…+12 dB, ramped per block), balance pan,
 into the heard mix (mute/solo), the capture bus (unless muted) and the mono echo send — then: stretcher capture (the
 capture bus: the channels that are not muted, dry), stretcher pull → STRETCH channel, tape records the capture bus (now
 with the stretcher) and plays into the TAPE channel, echo from the sends, `SMP_OUT` tap, master. Samples are clamped to
@@ -231,6 +287,8 @@ more often and slower for a light touch. Everything that depends on the fingers 
 (`prepare`); `touch_render` is its own mixer channel (`CH_TOUCH`), and stops rendering 40 blocks after the last finger
 lifts and the output is quiet. The page fills `touch.f[]`: slots 0-4 the touchpad's fingers, 5 the mouse, 6-13 a key
 (or MIDI note) per pad, whose pressure climbs while held. `make render` writes `touch.wav`, 25 scripted seconds of it.
+The page is after Michel Waisvisz's Crackle Box (the Kraakdoos): `lesson_touch` is its history band, above the footer
+as on the LINEAGE views (the scope above it is 4 rows under 45 rows of text, 6 from there).
 
 **Splash (`core/splash.c`, `splash_ans.c`, `splash_gendy.c`, `splash_cmi.c`, `splash_meta.c`):** after `app_init`,
 one of four pieces (`struct splash_piece`: start, draw at a time, audio from a frame). `app_init` picks one before the
@@ -258,10 +316,41 @@ set while held and put back once the tail is gone (5 s / 8 s). Lengths come from
 or `seq.bpm`). The page: keys 1-8 hold, Shift latches, Space holds what sounds, 0 all off; the pad's first finger (or
 the mouse) plays `perf.sel`, a second one the filter; MIDI notes 36-43 hold, CC 16/17 are X/Y, CC 102-109 hold
 (`app_midi`). `fxpage` checks run each effect on a test signal through `perf_block`, then the keys and a DUB throw
-through the app; `build/host/video --fx out.mp4` records a scripted performance (`--ans`, `--xen` the ANS and XENAKIS
-pages).
+through the app; `build/host/video --fx out.mp4` records a scripted performance (`--ans`, `--xen` ANS and XENAKIS).
 
-**ANS page (`core/ans.c`, `core/page_ans.c`):** `ans.plate` is `ANS_ROWS` (360: five octaves of 72, from C of
+**LINEAGE page (`core/page_lineage.c`, views in `core/lineage.h`: `page_xen.c`, `page_ans.c`, `page_reich.c`,
+`page_carlos.c`, `page_radigue.c`, `page_merzbow.c`):** homages, a view each, in the order of their music (`LV_XEN`,
+`LV_ANS` … `LV_MERZBOW`; it opens on ANS), on the generic view set of `core/views.c` (a bar with years on the set's
+`row`, `again` = next view, a click picks one, `views_goto` repaints everything like a page switch, `step_key` names
+the key that steps the set in the bar's hint). XENAKIS (`lin_xen`) is a view whose hooks run a set of its own on row
+2 (below). `lineage_layout` places a view's parts (picture, a
+30-cell knob panel drawn with `lineage_knob`, the lesson band below: `ui_lesson` with `core/lessons.c`'s texts);
+`lineage_goto`/`lineage_current` for tests. The engines render into `BUS_LINEAGE` (`CH_LINEAGE`, the last mixer
+channel after `CH_DOOM`) through `core/lineage_audio.c`: `lineage_block` (CARLOS's glide), `lineage_render` (MERZBOW's
+chain over what is on the bus, then RADIGUE's drone added after it, never crushed) and REICH's event functions.
+- CARLOS (`core/carlos.c`): the `P_MOOG` preset rewritten from the knobs (`carlos_apply` → `synth_set_preset`); a step
+  of the scale chosen (12-TET, alpha 78.0, beta 63.8, gamma 35.1 cents) is a note plus a bend (`synth_tag_bend`); mono
+  keeps a last-note stack and glides on the audio side (`carlos_block`); the touchpad a two-octave ribbon. Saved `CRL1`.
+- MERZBOW (`core/junk.c`): SCRAPE (a Chamberlin band-pass noise per finger, `junk_scrape`), METAL (P_METAL voices,
+  tag 0xC60 | object; `metal_left` keeps the chain on while they ring), FEEDBACK (a 4096-frame loop with a band, gain
+  above one, ramped), BYTES (4 KB of `junk_render`'s own code as 8-bit sound); then DRIVE (`soft`, 32-bit), CRUSH, CHOP
+  and a cap: the block's mean square against −12 dBFS, the gain its square root (`isqrt`), ramped. Engaged only while
+  its own sources sound; otherwise `junk_render` returns its `add` untouched (idle costs nothing). The picture: shards
+  whose edges light (fills stay, so a change writes edges only) and a wall written at a sweeping head. Saved `MRZ1`.
+- RADIGUE (`core/drone.c`, state `radigue`: Doom's code has a global `drone`): eight partials, pitch in tenths of a cent
+  (C2 = 36000); phase steps once a block from 2^(x/12000) in Q30 (a semitone table and e^y to its cube), sines from the
+  8192 table interpolated; breath per partial (30 s–10 min), sweeps of the base evenly in pitch (`sweep_shift` keeps the
+  progress 32-bit), a smoothstep fade; with `harmony_on` the base goes to the chord's root. The view's score is a
+  column every 100 ms at a sweeping head. Saved `RDG1` (not whether it sounds).
+- REICH (`core/phase.c`, state `reich`): players as event sources; time is `now_q16` (frames × 65536 since the start),
+  each player's next step a point on it. PHASE: a move plays m = move × len steps in the time of m − k of the first
+  player's, each step's time computed from the move's start (a 64-bit multiply and divide an event), so the lock is
+  exact; SHIFT jumps `pos`; DRIFT/LOOP shorten the step by `drift` × k tenths of a percent (LOOP's step is the sampler
+  slot's length). `phase_log` keeps the last 64 hits for the checks; `phase_offset_q16` for the rings. The tempo
+  changes where the first player begins a pattern while nobody moves. Saved `RCH1`.
+- ANS (`core/ans.c`, `core/page_ans.c`, below).
+
+**ANS (a LINEAGE view; `core/ans.c`, `core/page_ans.c`):** `ans.plate` is `ANS_ROWS` (360: five octaves of 72, from C of
 `ans.octave`) × `ANS_COLS` (512) bytes, column-major, from `plat_alloc` in `audio_init`. `ans_render` (its mixer
 channel `CH_ANS`) blends the two columns around the slit (Q32 position, `step_q32` from `ans_frames_per_pass`: bars of
 the Link or sequencer tempo, or seconds), eases each row towards brightness² over ~4 ms, renders only rows sounding
@@ -273,6 +362,7 @@ frame; light above `thresh`, or edges. The page redraws only dirty plate columns
 keyed canvas, about 4 ms of the measured screen speed (`gfx_speed_mbs`) a frame, the rest the next frame from where it
 stopped (a live camera dirties the whole plate each picture; a slow framebuffer would hold up the main loop and starve
 the camera's USB transfers). Undo kind `U_ANS` (the whole plate); saved as `ANS1` + the plate as project media after the samples.
+`Insert` writes a drone after Coil's ANS (`coil_sketch`, undoable); passes go up to 240 s.
 
 **Instruments from files (`core/inst.c`, `core/page_inst.c`; format in INSTRUMENTS.md):** `inst_load_all` (boot,
 before the autoload; every `disk_rescan`) parses the built-in texts (`inst_builtin`) and then `INSTR/*.TXT` from the
@@ -280,8 +370,8 @@ stick's FAT (`fat_list`), up to `INSTS`; a file of the same name replaces a buil
 value` lines, `[sound]` `[play]` `[knobs]`, notes a mistake (the first, and a count) and keeps reading; no name, no
 instrument. Each instrument's sound is a user preset (`P_INST1 + i`, appended after `P_GD4`; `synth_user_preset`):
 such presets keep their own envelope, level and filter even when the wave is GENDY, FM or a sample. The PLAY page
-(`page_play.c`) has `showing`: F1 again (`again`) steps through the omnichord and the instruments (`play_show`), the
-tab name is a buffer, and every hook hands over to `inst_page_*` when an instrument shows (its key hook takes every
+(`page_play.c`) has `showing`: its key again (`again`) steps through the omnichord and the instruments (`play_show`,
+`play_showing`), the tab name is a buffer, and every hook hands over to `inst_page_*` when an instrument shows (its key hook takes every
 key, so nothing reaches the omnichord). Playing is declarative: the page says which notes are held (`inst_note`, by
 key/pad/MIDI id) and where the strip's finger is (`inst_strip`); `inst_block` (the audio loop, after UPIC's) makes
 voices: one per held note (tags 0xA00 | slot), one gliding voice for the strip or a mono instrument (0xA40; a stepped
@@ -314,21 +404,37 @@ it shows, `app_step` runs `app_background` (keys, the background work) and `doom
 `I_GetTime` moves on (35 a second), each frame scaled to a 4:3 box (as large as the screen, the framebuffer's measured
 speed at 25 fps and ~2 MP allow) with Doom's 256 colours as the palette (BARE!'s saved and put back). Its waits
 (`I_Sleep`, the screen melt) run `app_background`; a page key pressed then only asks (`leave_asked`). The clock
-(`doom_clock_ms`) stops while it is left; coming back opens its menu (`doom_engine_resume`). Keys: the F keys leave for
-their page, the volume keys stay BARE!'s, everything else is queued for Doom (a key held from before goes back to
+(`doom_clock_ms`) stops while it is left; coming back opens its menu (`doom_engine_resume`). Keys: the F keys that open
+something leave for it (the ones that open nothing are Doom's own: `doom_code` maps them), the volume keys stay BARE!'s, everything else is queued for Doom (a key held from before goes back to
 BARE!'s side on release, and a key pressed in Doom is swallowed when let go after leaving). Sound (`core/doomsnd.c`):
 effects are the WAD's DMX samples, interpolated, panned as Chocolate Doom does, added into the DOOM bus from
 `render_block`; music (MUS, or MIDI files as in Freedoom) becomes MIDI-style events in tracks merged as they play
 (`doomsnd_block` per audio block, 64-bit tick position, tempo changes), each note a voice tagged `0xB000 | ch << 7 |
-note` on `BUS_DOOM` (CH_DOOM, the last mixer channel; the MIX page shows it once `doom_started`), GM programs mapped to
-presets (29/30 GRIND), drums to KICK/SNARE/HAT. The `doom` check group plays it through (start, an error and a fresh
+note` on `BUS_DOOM` (CH_DOOM, before CH_LINEAGE; the MIX page shows it once `doom_started`), GM programs mapped to
+presets (29/30 GRIND, `doom_gm_preset`), drums to KICK/SNARE/HAT. The readers (`doom_song_read`: MUS or a MIDI file
+into a sink, 0xFD opening a track) serve the player and the tracker's import: `core/doomtrack.c`, SEQ's `⇧4`, finds
+the IWAD (`doom_wad_path`), reads D_E1M1 (else D_RUNNIN) from its directory with `fat_read`, pairs the notes, fits a
+16th grid (MIDI: division / 4; MUS: the commonest gap between a line's notes, refined to the best fit; a note between
+rows waits with EDx), puts the busiest line on GTR and GTR2 (its chord notes), the next on GTR B, the bass on BASS,
+into patterns 1… (`seq_begin` clears the song), then arranges: pattern 0 an intro break, a breakdown half way, a tape
+stop at the end, drums from its own break patterns in every bar, stutters and gates on the guitars (seeded: the same
+song every time). Nothing of the WAD's music is stored in BARE!. The `doom` check group plays it through (start, an error and a fresh
 start, a level, a save, leaving and coming back, Quit, loading the save); `build/host/video --doom IMAGE out.mp4`.
 
-**XENAKIS page (`core/page_xen.c`, views in `core/xen.h`: `page_upic.c`, `page_gendy.c`, `page_cloud.c`,
-`page_sieve.c`):** one page, four views; the page dispatches keys, pointer, drawing and MIDI to the view showing and
-draws the view bar (row 1). `xen_current`/`xen_goto` for tests and scripts (key taps are queued, `xen_goto` is
-immediate: run the app between them). On CLOUDS the digits 1-4 and 0 come before the keyboard's upper row, whose
+**XENAKIS, inside LINEAGE (`core/page_xen.c`, views in `core/xen.h`: `page_meta.c`, `page_cloud.c`, `page_sieve.c`,
+`page_upic.c`, `page_gendy.c`):** a page of its own until 2.6, now LINEAGE's view `LV_XEN` whose hooks run a set of
+five views in the order of their music (`XV_META` first, where it opens), its bar on row 2 under LINEAGE's, the views
+from `XEN_TOP` (row 3). F12 opens it by default (an `FK_VIEW`); pressed again it steps these views (`xen_again`).
+`xen_current`/`xen_goto` for tests and scripts (key taps are queued, `xen_goto` is immediate: run the app between
+them; LINEAGE must be showing XENAKIS, e.g. after F12). On CLOUDS the digits 1-4 and 0 come before the keyboard's upper row, whose
 2 3 5 6 7 9 0 are black keys elsewhere.
+- METASTASEIS (`core/meta.c`): four families of up to 46 strings (`META_MAX`) strung between two guide lines
+  (`struct meta_line`: time 0..65535 across, pitch in 1/256 semitones), evenly or in the Modulor's proportions,
+  straight or crossed, a section each (violins I … basses, or split as the score); `meta_compile` makes the strings
+  (their ends land on the chord with `harmony_on`), `meta_render` sounds those under the cursor (at most `META_VOICES`,
+  sines with a little vibrato each, following `splash_meta.c`'s tone) into the UPIC bus. The view: graph paper with
+  the families, the ruled surface turning in 3D, guides dragged with the mouse or held by two fingers; Enter writes the
+  family onto UPIC's page. Undo kind `U_META`; saved `MTS1`. It and UPIC show lessons.
 - GENDY (`core/gendy.c`): a period is a polygon of up to 16 breakpoints; after each period every height takes a
   second-order step (the step walks too, `inertia`) and every segment length a step, from one of six distributions
   (`gendy_dist_q15`), mirrored at the patch's walls. Lengths are shares of the period (edges as shares of 2^32, one
@@ -380,7 +486,8 @@ many). `midi_work` (main loop) parses — running status, sysex skipped, realtim
 stop itself (tempo from the last 24 clocks), queues channel messages for `app.c:app_midi` (notes on voice tags
 0x600 | note playing the page's `strum_sound`, or a page's `midi` hook: the tracker's step entry), and drains an out
 ring that the audio interrupt fills: the tracker's `chan_off`/note-ons, `midi_clock_run` counting 24 clocks a beat on
-the sample clock, `midi_transport` from `seq_play`. Serial ports run at 38400 (115200/3; a 16550 can't make 31250);
+the sample clock, `midi_transport` from `seq_play` (and from `rhythm_play` while the tracker is stopped), and the
+omnichord's `midi_omni_*` messages on channels 1-4 and 10 when `midi.omni_out`. Serial ports run at 38400 (115200/3; a 16550 can't make 31250);
 opening COM1 for MIDI switches the log off it (`serial_log`). The port, channel and switches ride in the stick's
 settings header (`midi_lo`/`midi_hi`). QEMU: `tools/qemu-test.py --midi` makes COM2 a pair of FIFOs; `midi:90,45,64`
 tokens send bytes, and what the guest sent is in `build/<arch>/midi-out.bin`.
@@ -418,7 +525,7 @@ per-frame steps, never a 64-bit division per pixel (a library loop on i386).
 `plan_memory` (avail/16, 1–64 MB). Records of an action share a group; `undo_begin` on the same thing within a second
 continues the last action (pen strokes, held keys). Undoing a group first records the present state as a redo group,
 then restores in reverse (the earliest save of a thing wins). Kinds: a pattern, the song (order list, tempo, channels),
-a wave slot, an FM patch, a sample with its frames (`U_SAMPLE`) or just its settings (`U_SMETA`), a tape block
+a wave slot, an FM patch, a sample with its frames (`U_SAMPLE`) or just its settings (`U_SMETA`), METASTASEIS's families (`U_META`), a tape block
 (index = track << 12 | span, with the track's `used`; size 0 = there was no block), the ANS plate, a GENDY patch, a
 sieve (its text and unit, compiled again on restore), a cloud's settings (whether it plays is kept), UPIC's page (what
 it uses; restored with interrupts held). A tape take is one action:
@@ -447,15 +554,35 @@ keep their 1080p proportions; code that sizes things from `text_font()` scales w
 rasterises only changed cells. `text_gfx` hands a rectangle of cells to graphics for the frame (the grid leaves those
 pixels alone) — that is how pages mix text and pixels.
 
-**Pages and input:** a page is one file, `core/page_<name>.c`, exporting a `struct page` (`core/ui.h`): name and key,
+**Pages and input:** a page is one file, `core/page_<name>.c`, exporting a `struct page` (`core/ui.h`): name,
 `key_event` (return true when the page used the key), optional `typing` (text entry: global keys step aside),
-`pointer`, `strum_sound` (what the strum plate plays there) and `draw`. `ui_pages[]` in `core/ui.c` is the tab order
-(F1…F12, Ctrl+1…9, Ctrl+0, Ctrl+-, Ctrl+=; a page's own key pressed on it calls its optional `again`, which the XENAKIS
-page uses to step views). `core/app.c:handle_key`: the F keys (or Ctrl+digit) switch pages and do nothing else; Shift+key is
-the function layer (`shift_function`: sounds, 1-bit, echo, freeze, thermal, volume, mute, `⇧?` help — `ui_help`
+`pointer`, `strum_sound` (what the strum plate plays there) and `draw`. `ui_pages[]` in `core/ui.c` is the PAGE_*
+order, which is also the default keys (eleven pages; F12 opens LINEAGE's XENAKIS). **What each F key opens** is
+`core/fkeys.c`'s `fkeys[12]` (F1…F12; Ctrl+1…9, Ctrl+0, Ctrl+-, Ctrl+= are the same keys): a page (`FK_PAGE`), a view
+of LINEAGE (`FK_VIEW`: page and view; `sub` = one of XENAKIS's views + 1, 0 as it was left), an instrument by name
+(`FK_INST`, looked up when pressed: `fkey_inst`) or nothing (`FK_OFF`, no tab). `app_goto_key`: pressed on the key that
+opened the page, the page's optional `again` (PLAY: the next instrument, LINEAGE: the next homage; a key opening
+XENAKIS or one of its views: XENAKIS's next view; a view key whose view no longer shows: back to it); otherwise
+`arrive`: a key opening a whole page comes back to where it was left (`left_at`: PLAY's `showing`, the view; the first time
+the page's start), and `cur_key` (`app_key`, the lit tab) is that key; `app_step` puts `cur_key` back on a key of the
+page showing when the keys move (or an export takes FILE). FILE is always on a key (`ensure_file`, and the KEYS view
+won't empty its last one). The layout lives in KEYS.TXT in the stick's FAT root, a line for each key that differs from
+the default (`F2 SHRUTI`, `F6 off`; `fkeys_parse` notes the first mistake and a count), read after the instruments at
+boot and on `disk_rescan` (`fkeys_load`: without the file the layout stays), written by `fkeys_work` 0.8 s after
+`fkeys_changed` (not during an export or install). `tools/mkimage.py` puts a comments-only one on new sticks, with the
+header `fkeys_text` writes (a check holds them together). The title bar's tabs come from it (`ui.c:title_bar`: the lit
+key shows the live name, a key opening PLAY whole the instrument it will come back to; short names, then cut names,
+until they fit), and `ui_tabs_pointer` (from `app_step`, before the page's pointer hook) makes a click on a tab
+`app_goto_key` and a drag (every key's place shown, the free ones as `·`) `fkeys_swap`. Text that names a key asks:
+`fkeys_page_key(PAGE_*)` (0 when no key opens it) or `fkey_names[app_key()]`. FILE's KEYS view edits it (`←→` through
+`fkeys_place`: off, the pages, the views, the instruments; `Space` carries; `Del`; `R Y`); `file_show_keys()` opens it
+for tests and scripts. `core/app.c:handle_key`: the F keys (or Ctrl+digit) open what they open and do nothing else; Shift+key is
+the function layer (`shift_function`: sounds, 1-bit, echo, freeze, thermal, volume, mute, `⇧K` keys follow the chord, `⇧?` help — `ui_help`
 replaces the page, so closing it redraws like a page switch); Shift+keys it doesn't take reach the page, which can read
 `ui_shift` (SEQ: ⇧1-3 demos, checked before its note keys, where 2 3 5… are sharps). A key whose press was taken has
-its release swallowed. Then the page, then — on pages with `plays_omni` — `omni_key` for whatever the page didn't use.
+its release swallowed. Then the page, then — on pages with `plays_omni` — `omni_key` for whatever the page didn't use
+(the chord rows are the three letter rows, so a page's own keys shadow some buttons: TAPE the MINOR row, OPERATOR,
+STRETCH and MIX the B and F# columns).
 Key codes are portable (`core/keys.h`; laptop volume keys are `KEY_VOLUP`/`KEY_VOLDOWN`/`KEY_MUTE`). The ⇧ glyph is
 drawn by `tools/psf2c.py` (code page 0xDE). The host harness presses Shift+key with `host_shift_tap`; tests that also
 build against the baseline use `HOST_DEMO`/`HOST_FREEZE`/`HOST_KEY_*` from `test/host.h`.
@@ -465,7 +592,10 @@ pen — `pointer()` maps the pad onto the whole page area and treats a finger li
 overview is cached per column and only the columns playheads leave and reach are redrawn (`ov_column`).
 
 **Drawing a page** (`core/ui.h`): `ui_panel`, `LEGEND`/`FOOTER` (keycap legends that wrap and drop items — use them for
-key help, never a raw `text_str`), `ui_label`, `ui_led`, `ui_bar` (a pixel slider). Pixel pictures go on canvases:
+key help, never a raw `text_str`; they take any expression, and a key of 0 leaves its pair out), `ui_label`, `ui_led`, `ui_bar` (a pixel slider),
+`ui_para` (UTF-8 text wrapped in a box, cut after the last whole sentence that fits; y < 0 only measures) and
+`ui_lesson` (a history panel from `core/lessons.c`: two columns from 90 cells, dropping the listening list, then the
+how, then sentences where it is short; `ui_lesson_rows` its height). Pixel pictures go on canvases:
 `ui_canvas` (cleared every frame), `ui_canvas_keyed` (redrawn only when a hash of what it shows changes — hash
 everything the picture depends on, `ui_hash`), and the self-updating `ui_scope` / `ui_stereo`, which keep their pixels
 and only replace the columns/lines that changed, at 30 fps. Layout must work from 100x37 cells up.
@@ -475,9 +605,11 @@ per pattern (the tracker), `WAVE`, `STRC`, `FMB2`, `GDY1` (GENDY patches), `SIEV
 (the clouds, saved off), `TAP8`, `RHYT`, `MIX2`, `TUCH`, `MFX1`, `SMPL` per sample, `ANS1` (the plate's settings; the
 plate itself is media after the samples), `UPC1` (UPIC's length and counts; its arcs and points are media after the
 plate, checked by `upic_loaded` from `project_loaded` once read), `TAPB`
-(the tape's blocks), `END `. 1.0's `SEQ `, `FMBK` and `TAPE` (4 tracks), and 2.1's `MIXR` (six channels, arrays per
+(the tape's blocks), `OMN2` and `RHY2` (the omnichord and rhythm as 2.6 has them), `HRM1` (keys follow the chord),
+`MTS1` (METASTASEIS's families), `CRL1` (CARLOS), `MRZ1` (MERZBOW), `RDG1` (RADIGUE), `RCH1` (REICH), `END `. 1.0's
+`SEQ `, `FMBK` and `TAPE` (4 tracks), and 2.1's `MIXR` (six channels, arrays per
 field; `MIX2` is a count and a record per channel, so channels can be added) are still read; `MFX1` keeps the first six
-channels' reverb sends, `MIX2` has them all. Mixer channels are only ever appended (`CH_DOOM` is last). Loaders
+channels' reverb sends, `MIX2` has them all. Mixer channels are only ever appended (`CH_LINEAGE` is last). Loaders
 tolerate missing/short chunks and clamp every value (a slot can hold anything); new fields go in new chunks, so old
 projects keep loading. Version 2 changed FM algorithm 3's routing; loading a version 1 project migrates it (op 3 level
 0). `core/disk.c` finds the stick's FAT boot partition and the raw `HBTAPE01` partition of 1 MiB project slots
@@ -622,7 +754,7 @@ file=build/touchpad.aml"`).
 **Debugging:** `logf` in `core/log.h` writes to the serial port (QEMU `-serial stdio` / `serial.log`; `HOST_LOG=1` for
 the harness). The title bar's `dsp NN%` is the share of CPU spent in the audio interrupt (`plat_audio_load`). On
 machines without a serial port: `logf` also keeps the last 16 KB in memory (`core/log.c`), and the FILE page's LOG view
-(Tab past SONGS and MIDI) shows it under a live line about the sound device (controller, codec, DMA moving, each output
+(Tab past SONGS, MIDI and KEYS) shows it under a live line about the sound device (controller, codec, DMA moving, each output
 pin's control, EAPD, amp and jack, timer rate against the CMOS clock); there T plays a 440 Hz tone straight into the
 sound chip's ring, P turns every HDA output on regardless of the jacks, and W writes a hardware report to the stick's
 FAT root (`page_file.c:write_report`: HB-LOG.TXT, then the platform's `plat_report_file`/`plat_report_piece` —
@@ -632,13 +764,23 @@ and logs that.
 
 ## Repo notes
 
-- Work happens on the `revamp` branch (1.0 to 2.5); `master` is the state before the revamp. This history stays on
-  this machine. The public repository is github.com/willbearfruits/bare (a checkout in `../bare-public`): `main` gets
-  one commit per release, the tree from `git archive` of `revamp`, authored `willbearfruits <willbear.fruits@gmail.com>`
-  (Co-Authored-By kept, no Claude-Session lines); `gh-pages` is `build/site` (`tools/site.py`); each release `vX.Y`
-  carries `make dist`'s files, `bare-X.Y.img.xz`, the manual and the showcase video, which the README links to.
+- Work happens on the `revamp` branch (1.0 on); `master` is the state before the revamp. 2.6's OM-108, keys following
+  the chord, LINEAGE, METASTASEIS and SEQ's E1M1 import were built on a `lineage` fork and fast-forwarded into `revamp`
+  (the history is linear: no merge commits). This history stays on this machine. The public repository is github.com/willbearfruits/bare (a checkout in
+  `../bare-public`): `main` gets one commit per release, the tree from `git archive` of `revamp`, authored
+  `willbearfruits <willbear.fruits@gmail.com>` (Co-Authored-By kept, no Claude-Session lines); `gh-pages` is
+  `build/site` (`tools/site.py`); each release, tagged `v` + its files' name (`v1.0-beta`), carries `make dist`'s
+  files — `bare-1.0-beta.img.xz` (Linux's `curl | xz -dc | dd` line), `.img.zip` (balenaEtcher, Rufus, Raspberry Pi
+  Imager: Etcher's Flash from URL fails on `.xz`), the ISO, the floppy, BARE.UPD — the manual, GRUB's source (the
+  floppy carries GRUB) and the showcase video when there is one (1.0 beta went out without: `tools/site.py` leaves the
+  video, the loop and the Watch button out when `media/RELEASE/bare-showcase-1280.mp4` is missing). A web page can't write a stick (no raw disk access; WebUSB leaves storage
+  devices out), so the page's GET IT section explains those tools. 1.0 beta is the first public release: the
+  versions before it, numbered 1.0 to 2.6, were development versions (CHANGES.md keeps them under "Before 1.0"; 2.5
+  was a GitHub pre-release for a while), and the code's comments still name them where old projects and sticks need
+  it. A beta goes out as a GitHub pre-release (never `/releases/latest`, so the README and the page name the tag).
 - `build/` is ignored and fills with test screenshots and images; `media/` (also ignored) keeps the screenshots and
-  videos made for the user.
+  videos made for the user, and things made from the user's own Doom WAD (the demo stick `media/demo/bare-demo.img` and
+  its takes — `media/demo/run-demo.sh` records one —, stick backups, the E1M1 preview): never publish or commit those.
 - Flashing the user's stick is theirs to approve: `pkexec python3 tools/hb.py flash build/i386/bare.img /dev/sdX`
   (absolute paths under pkexec; `make usb DEV=…` does the same with sudo). It keeps the project partition, refuses a
   mounted or non-removable disk, and reads back what it wrote. The desktop mounts the stick's FAT partition when it is

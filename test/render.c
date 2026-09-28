@@ -110,13 +110,13 @@ int main(int argc, char **argv) {
     report("presets", analyse(p, 0, 0));
     HOST_SET_ECHO(true);
 
-    /* 2. PLAY page: hold chords, strum both rows */
+    /* 2. PLAY page: hold chords (C, Eb, F, Bb on the MAJOR row), strum the strings up and down */
     path(p, sizeof p, "strum"); host_wav_open(p);
-    const char *roots = "4152";
+    const char *roots = "6354";
     for (const char *r = roots; *r; r++) {
         host_key((uint8_t)*r, true); host_run(150);
-        for (const char *s = "asdfghjkl"; *s; s++) { host_tap((uint8_t)*s); host_run(60); }
-        for (const char *s = "zxcvbnm"; *s; s++) { host_tap((uint8_t)*s); host_run(45); }
+        for (const char *s = "zxcvbnm,./"; *s; s++) { host_tap((uint8_t)*s); host_run(60); }
+        for (const char *s = "/.,mnbvcxz"; *s; s++) { host_tap((uint8_t)*s); host_run(45); }
         host_run(300); host_key((uint8_t)*r, false); host_run(100);
     }
     host_run(1500);

@@ -46,23 +46,62 @@ static struct preset presets[P_COUNT] = {                        /* the last 8: 
     { "GENDY 2",   WAVE_GENDY,  0,    1,    1,  120,100, 70, 127,  0,   0,   0,   0,  0,  0, false, 1 },
     { "GENDY 3",   WAVE_GENDY,  0,    1,    1,  120,100, 70, 127,  0,   0,   0,   0,  0,  0, false, 2 },
     { "GENDY 4",   WAVE_GENDY,  0,    1,    1,  120,100, 70, 127,  0,   0,   0,   0,  0,  0, false, 3 },
+    [P_INST8 + 1] =                                              /* the omnichord's voices: main voices first, then subs */
+    { "MELLOW PULSE",  WAVE_PULSE, 50,  2, 1500, 250,  0, 58,  60, 12,  26,   0,   0,  0,  0, false },
+    { "TREMOLO PULSE", WAVE_PULSE, 40,  4, 1800, 300,  0, 46,  66,  0,  12,   0,   0,  0,  0, false, 0, 55 },
+    { "SYNTH STRINGS", WAVE_SAW,    0, 180,  600, 450, 85, 40,  74,  5,   0,   0,   0, 12, 30, false },
+    { "MELLOW PAD",    WAVE_PULSE, 30, 260,  800, 600, 80, 42,  58,  8,   6,   0,   0,  6, 20, false },
+    { "HARP",          WAVE_TRI,    0,  1, 2600, 400,  0, 70,  98,  0,  22,   0,   0,  0,  0, false },
+    { "CELESTE",       WAVE_FM,     0,  1,    1, 4000,100,58, 127,  0,   0,   0,   0,  0,  0, false, FM_PATCHES + 1 },
+    { "A.PIANO",       WAVE_SAW,    0,  2, 2400, 350,  0, 55,  70,  5,  40,   0,   0,  0,  4, false },
+    { "GUITAR",        WAVE_PULSE, 18,  1, 1900, 250,  0, 55,  76, 18,  36,   0,   0,  0,  0, false },
+    { "FM PIANO",      WAVE_FM,     0,  1,    1, 4000,100,58, 127,  0,   0,   0,   0,  0,  0, false, FM_PATCHES + 0 },
+    { "VIBES",         WAVE_FM,     0,  1,    1, 4000,100,58, 127,  0,   0,   0,   0,  0,  0, false, FM_PATCHES + 2, 35 },
+    { "BANJO",         WAVE_PULSE, 22,  1,  700, 180,  0, 60,  88, 22,  30,   0,   0,  0,  0, false },
+    /* its drum kit (the OM-84's is KICK, SNARE and HAT above) */
+    { "KICK 2",        WAVE_SINE,   0,  1,  320,  60,  0,100, 127,  0,   0,  44,  55,  0,  0, true  },
+    { "SNARE 2",       WAVE_NOISE,  0,  1,  200,  60,  0, 58, 108, 10,  10,   0,   0,  0,  0, true  },
+    { "HAT 2",         WAVE_NOISE,  0,  1,   40,  20,  0, 26, 124,  0,   0,   0,   0,  0,  0, true  },
+    { "OPEN HAT",      WAVE_NOISE,  0,  1,  320,  80,  0, 24, 122,  0,   0,   0,   0,  0,  0, true  },
+    { "CLAP",          WAVE_NOISE,  0,  3,  160,  60,  0, 50, 100, 30,   8,   0,   0,  0,  0, true  },
+    { "TOM HI",        WAVE_SINE,   0,  1,  260,  60,  0, 80, 127,  0,   0,  20,  90,  0,  0, true  },
+    { "TOM LO",        WAVE_SINE,   0,  1,  320,  60,  0, 85, 127,  0,   0,  20, 110,  0,  0, true  },
+    { "FLOOR TOM",     WAVE_SINE,   0,  1,  400,  80,  0, 90, 127,  0,   0,  22, 140,  0,  0, true  },
+    { "CRASH",         WAVE_NOISE,  0,  1, 1600, 400,  0, 24, 118,  5,   0,   0,   0,  0,  0, true  },
+    { "RIM",           WAVE_PULSE, 50,  1,   30,  20,  0, 60, 110,  0,   0,   0,   0,  0,  0, true  },
+    { "TAMBOURINE",    WAVE_NOISE,  0,  1,  140,  40,  0, 22, 126,  0,   0,   0,   0,  0,  0, true  },
+    { "CONGA",         WAVE_SINE,   0,  1,  180,  40,  0, 75, 127,  0,   0,  14,  40,  0,  0, true  },
+    { "MARACAS",       WAVE_NOISE,  0,  1,   35,  15,  0, 18, 126,  0,   0,   0,   0,  0,  0, true  },
+    { "CLAVES",        WAVE_SINE,   0,  1,   70,  20,  0, 70, 127,  0,   0,   0,   0,  0,  0, true  },
+    { "KICK 808",      WAVE_SINE,   0,  1,  900, 200,  0,100, 127,  0,   0,  30,  60,  0,  0, true  },
+    { "MOOG",          WAVE_SAW,    0,  5,  400, 250, 70, 60,  70, 40,  40,   0,   0,  0, 12, false },   /* CARLOS rewrites it */
+    { "JUNK METAL",    WAVE_FM,     0,  1,    1, 4000,100,70, 127,  0,   0,   0,   0,  0,  0, false, FM_PATCHES + 3 },
+    { "MARIMBA",       WAVE_FM,     0,  1,    1, 1500,100,64, 127,  0,   0,   0,   0,  0,  0, false, FM_PATCHES + 4 },
 };
+int32_t synth_tune_q8;
 void synth_user_preset(int i, const struct preset *p) {
-    if (i < 0 || i >= P_COUNT - P_INST1) return;
+    if (i < 0 || i >= P_INST_END - P_INST1) return;
     uint32_t st = plat_irq_save();
     if (p) presets[P_INST1 + i] = *p; else memset(&presets[P_INST1 + i], 0, sizeof presets[0]);
     plat_irq_restore(st);
 }
+void synth_set_preset(int id, const struct preset *p) {
+    if (id < 0 || id >= P_COUNT || !p) return;
+    uint32_t st = plat_irq_save();
+    presets[id] = *p;
+    plat_irq_restore(st);
+}
 const char *synth_preset_name(int id) {
-    if (id >= P_INST1 && id < P_COUNT) return presets[id].name ? presets[id].name : "(no instrument)";
+    if (synth_is_inst(id)) return presets[id].name ? presets[id].name : "(no instrument)";
     const struct preset *p = synth_preset(id);
-    return p->wave == WAVE_FM ? fm_bank[p->src].name : p->wave == WAVE_SAMPLE ? samples[p->src].name
+    if (p->wave == WAVE_FM && p->src >= FM_PATCHES) return p->name;          /* a fixed patch: the preset's name */
+    return p->wave == WAVE_FM ? fm_patch_of(p->src)->name : p->wave == WAVE_SAMPLE ? samples[p->src].name
          : p->wave == WAVE_GENDY ? gendy_bank[p->src].name : p->name;
 }
 int synth_preset_next(int id, int d) {
     for (int i = 0; i < P_COUNT; i++) {
         id = (id + P_COUNT + d) % P_COUNT;
-        if (id >= P_INST1 ? presets[id].name != 0 : presets[id].wave != WAVE_SAMPLE || samples[presets[id].src].len) break;
+        if (synth_is_inst(id) ? presets[id].name != 0 : presets[id].wave != WAVE_SAMPLE || samples[presets[id].src].len) break;
     }
     return id;
 }
@@ -158,7 +197,8 @@ static struct voice *alloc_voice(int preset_id, uint16_t tag) {
     return best;
 }
 
-void synth_note_on_pan(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t tag, int pan) {
+void synth_note_on_pan(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t tag, int pan) { synth_note_on_ring(note, vel, preset_id, tag, pan, 0); }
+void synth_note_on_ring(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t tag, int pan, int ring_ms) {
     const struct preset *p = synth_preset(preset_id);
     const struct sample *sm = p->wave == WAVE_SAMPLE ? &samples[p->src] : 0;
     if (sm && (sm->busy || !sm->data || sm->end <= sm->start)) return;      /* an empty slot, or one being rewritten */
@@ -166,9 +206,10 @@ void synth_note_on_pan(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t ta
     struct voice *v = alloc_voice(preset_id, tag);
     bool retrig = v->active && v->tag == tag && v->preset == preset_id;
     uint32_t f = note_freq_q16(note);
+    if (synth_tune_q8) f = (uint32_t)(((uint64_t)f * synth_bend_mul(synth_tune_q8)) >> 16);
     v->active = true; v->released = false; v->preset = preset_id; v->note = note; v->tag = tag;
     v->bus = (tag >> 8) == 3 ? BUS_SEQ : (tag >> 8) == 4 ? BUS_RHYTHM : (tag >> 8) == 9 ? BUS_UPIC : (tag >> 8) == 8 ? BUS_CLOUD :
-             (tag >> 12) == 0xB ? BUS_DOOM : BUS_PLAY;
+             (tag >> 12) == 0xB ? BUS_DOOM : (tag >> 8) == 0xC ? BUS_LINEAGE : BUS_PLAY;
     v->inc = (uint32_t)(((uint64_t)f << 16) / rate);
     v->inc2 = v->inc + (uint32_t)(((uint64_t)v->inc * p->detune) >> 12);
     v->freq_hz = f >> 16;
@@ -180,7 +221,11 @@ void synth_note_on_pan(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t ta
     v->adsr = (struct adsr){ ms_to_step(p->attack_ms, rate), ms_to_step(p->decay_ms, rate), (int32_t)((ENV_MAX / 100) * p->sustain), ms_to_step(p->release_ms, rate) };
     v->base_amp = 24000 * (int32_t)p->volume / 100;               /* 3/4 of full scale: the master trim */
     v->bend_q16 = 65536;
-    bool own = preset_id >= P_INST1;                         /* an instrument's sound keeps its own envelope and level */
+    if (ring_ms > 0) {                                          /* how long it rings: a decaying sound's decay, the release */
+        if (!p->sustain && p->wave != WAVE_FM) v->adsr.d = ms_to_step(ring_ms, rate);
+        v->adsr.r = ms_to_step(MAX(40, ring_ms / 2), rate);
+    }
+    bool own = synth_is_inst(preset_id);                        /* an instrument's sound keeps its own envelope and level */
     if (sm) {
         if (!own) {
             v->adsr = (struct adsr){ ms_to_step(sm->attack_ms, rate), ms_to_step(1, rate), ENV_MAX, ms_to_step(sm->release_ms, rate) };
@@ -193,7 +238,7 @@ void synth_note_on_pan(uint8_t note, uint8_t vel, uint8_t preset_id, uint16_t ta
     pan = CLAMP(pan, -100, 100);
     v->pan_l = pan > 0 ? 32767 * (100 - pan) / 100 : 32767;      /* balance law: the centre stays at full level */
     v->pan_r = pan < 0 ? 32767 * (100 + pan) / 100 : 32767;
-    if (p->wave == WAVE_FM) fm_voice_start(&v->fm, &fm_bank[p->src], v->inc, rate, note, vel);
+    if (p->wave == WAVE_FM) fm_voice_start(&v->fm, fm_patch_of(p->src), v->inc, rate, note, vel);
     if (p->wave == WAVE_GENDY) {                                    /* its patch: envelope, level; a walk of its own */
         const struct gendy_patch *gp = &gendy_bank[p->src & 3];
         if (!own) {
@@ -231,6 +276,19 @@ void synth_note_off_tag(uint16_t tag) {
             v->released = true;
             if (presets[v->preset].wave == WAVE_FM) fm_voice_release(&v->fm, 0); else v->stage = ENV_RELEASE;
         }
+    }
+    plat_irq_restore(st);
+}
+
+void synth_tag_cut(uint16_t tag) {
+    uint32_t st = plat_irq_save();
+    int32_t step = ms_to_step(10, rate);
+    for (int i = 0; i < SYNTH_MAX_VOICES; i++) {
+        struct voice *v = &voices[i];
+        if (!v->active || v->tag != tag) continue;
+        v->released = true; v->stage = ENV_RELEASE;
+        if (v->adsr.r < step) v->adsr.r = step;
+        if (presets[v->preset].wave == WAVE_FM) fm_voice_release(&v->fm, step);
     }
     plat_irq_restore(st);
 }
@@ -356,15 +414,20 @@ static void voice_block(struct voice *v, int32_t *L, int32_t *R, int n) {
         v->penv_cur -= v->penv_dec * n; if (v->penv_cur < 0) v->penv_cur = 0;
     }
     if (mod_detune) { int32_t d = (int32_t)(((int64_t)inc * mod_detune) >> 12); inc2 += d; if (!p->detune) inc += d / 2; }
+    if (p->vib || p->trem) v->lfo += v->lfo_inc * (uint32_t)n;
+    int32_t tri = (int32_t)((v->lfo < 0x80000000u ? v->lfo : ~v->lfo) >> 16) - 16384;   /* ±16384 */
     if (p->vib) {
-        v->lfo += v->lfo_inc * (uint32_t)n;
-        int32_t tri = (int32_t)((v->lfo < 0x80000000u ? v->lfo : ~v->lfo) >> 16) - 16384;
         int32_t d = (int32_t)(((int64_t)inc * tri * p->vib) >> 26);
         inc += d; inc2 += d;
     }
+    if (p->trem) {                                                     /* the level swings with the same LFO */
+        int32_t t = 32767 - (int32_t)p->trem * (16384 + tri) / 100;       /* 1 .. 1 - depth */
+        gl_end = (gl_end * t) >> 15; gr_end = (gr_end * t) >> 15;
+        dgl = ramp_step(gl, gl_end, n); dgr = ramp_step(gr, gr_end, n);
+    }
     /* filter coefficients for this block (a GENDY patch has its own) */
     const struct gendy_patch *gp = p->wave == WAVE_GENDY ? &gendy_bank[p->src & 3] : 0;
-    bool patch_filter = gp && v->preset < P_INST1;                   /* an instrument's own filter, whatever its wave */
+    bool patch_filter = gp && !synth_is_inst(v->preset);            /* an instrument's own filter, whatever its wave */
     int cutoff = patch_filter ? gp->cutoff : p->cutoff, reso = patch_filter ? gp->reso : p->reso;
     bool filt = cutoff < 127;
     int32_t f = 0, q = 32767 - (int32_t)reso * 290;
@@ -456,7 +519,7 @@ static void voice_block(struct voice *v, int32_t *L, int32_t *R, int n) {
         break; }
     case WAVE_FM: {
         int32_t tmp[SYNTH_BLOCK];
-        const struct fm_patch *fp = &fm_bank[p->src];
+        const struct fm_patch *fp = fm_patch_of(p->src);
         fm_voice_render(&v->fm, fp, tmp, n);
         for (int i = 0; i < n; i++) { int32_t s = tmp[i]; L[i] += (s * gl) >> 15; R[i] += (s * gr) >> 15; gl += dgl; gr += dgr; }
         if (fm_voice_done(&v->fm, fp)) ending = true;

@@ -6,12 +6,11 @@
 #include "text.h"
 #include "libc.h"
 
-enum { PAGE_PLAY, PAGE_SEQ, PAGE_WAVE, PAGE_STRETCH, PAGE_FM, PAGE_TAPE, PAGE_FILE, PAGE_MIX, PAGE_TOUCH, PAGE_FX, PAGE_ANS, PAGE_XEN, PAGE_COUNT };   /* F1 … F12 */
+/* F1 … F11; F12 opens XENAKIS, which is inside LINEAGE (core/fkeys.c) */
+enum { PAGE_PLAY, PAGE_SEQ, PAGE_WAVE, PAGE_STRETCH, PAGE_FM, PAGE_TAPE, PAGE_FILE, PAGE_MIX, PAGE_TOUCH, PAGE_FX, PAGE_LINEAGE, PAGE_COUNT };
 
 struct page {
-    const char *name;                  /* tab label */
-    const char *key_name;              /* the key that opens it, as printed on the tab */
-    uint8_t     key;                   /* KEY_F1 … */
+    const char *name;                  /* tab label (which F key opens it: core/fkeys.h) */
     bool        plays_omni;            /* keys the page doesn't use still play the chord buttons and strum plate */
     bool (*key_event)(uint8_t code, bool down, uint64_t now);   /* true if the page used the key */
     bool (*typing)(void);              /* optional: true while the page takes typed text (global keys step aside) */
@@ -23,14 +22,18 @@ struct page {
     const char *short_name;            /* optional: the tab's label where the full ones don't fit (100 columns) */
     void (*again)(uint64_t now);       /* optional: the page's own key pressed on it (a page with views steps to the next) */
 };
-extern const struct page page_play, page_seq, page_wave, page_stretch, page_fm, page_file, page_tape, page_mix, page_touch, page_fx, page_ans,
-                         page_xen;
+extern const struct page page_play, page_seq, page_wave, page_stretch, page_fm, page_file, page_tape, page_mix, page_touch, page_fx, page_lineage;
 extern const struct page *const ui_pages[PAGE_COUNT];
-void play_show(int k);                  /* PLAY shows the omnichord (0) or instrument k - 1 (F1 again steps) */
+void play_show(int k);                  /* PLAY shows the omnichord (0) or instrument k - 1 (its key again steps) */
+int  play_showing(void);                 /* which: 0 the omnichord, k instrument k - 1 */
+void file_show_keys(void);               /* FILE shows its KEYS view (for tests and scripts) */
 extern bool ui_shift;                   /* a Shift key is down: Shift+key is the function layer (app.c) */
 extern bool ui_help;                    /* ⇧? shows the global keys in place of the page */
 
 void ui_draw(uint64_t now, int page);                          /* a whole frame: chrome, page, pointer */
+bool ui_tabs_pointer(uint64_t now);                            /* the title bar's tabs: a click opens, a drag moves;
+                                                                  true while the pointer is theirs */
+bool ui_tab(int k, int *x, int *w);                            /* key k's tab, in cells, as last drawn; false: none */
 void ui_notice(const char *msg, uint64_t now);                 /* a few words in the title bar for a moment ("undone: …") */
 void ui_boot_message(const char *line1, const char *line2);    /* full-screen status before the UI runs */
 void ui_redraw_all(void);                                      /* after something else had the screen: all of it anew */
@@ -68,13 +71,22 @@ static inline uint32_t ui_hash_int(uint32_t h, int32_t v) { return ui_hash(h, &v
 /* key legend: pairs of strings, key then what it does ("SPACE", "play"). Wraps into at most maxrows rows and drops
    what doesn't fit, so put the important ones first. y < 0 only measures. Returns the rows used. */
 int  ui_legend(int x, int y, int w, int maxrows, const char *const *pairs, int npairs, uint8_t bg);
-#define LEGEND(x, y, w, rows, bg, ...) ({ static const char *const k_[] = { __VA_ARGS__ }; ui_legend(x, y, w, rows, k_, (int)(ARRAY_LEN(k_) / 2), bg); })
+#define LEGEND(x, y, w, rows, bg, ...) ({ const char *const k_[] = { __VA_ARGS__ }; ui_legend(x, y, w, rows, k_, (int)(ARRAY_LEN(k_) / 2), bg); })
 void ui_footer(const char *const *pairs, int npairs);
-#define FOOTER(...) do { static const char *const k_[] = { __VA_ARGS__ }; ui_footer(k_, (int)(ARRAY_LEN(k_) / 2)); } while (0)
+#define FOOTER(...) do { const char *const k_[] = { __VA_ARGS__ }; ui_footer(k_, (int)(ARRAY_LEN(k_) / 2)); } while (0)
+/* in LEGEND and FOOTER a key of 0 leaves its pair out (fkeys_page_key: no key opens that page) */
 void ui_label(int x, int y, const char *label, const char *value, uint8_t value_fg, uint8_t bg);   /* "label value" */
 void ui_led(int x, int y, bool on, uint8_t color, const char *label, uint8_t bg);
 void ui_bar(int x, int y, int w, int value, int max, uint8_t fg, uint8_t bg);       /* eighth-cell resolution */
 int  ui_cells(const char *utf8);                                                     /* display width */
+/* word-wrapped text: lines break at spaces, \n forces one, a word wider than the box is cut. Text that needs more than
+   maxrows rows ends after the last whole sentence that fits (else with …). y < 0 only measures. Returns the rows used. */
+int  ui_para(int x, int y, int w, int maxrows, const char *utf8, uint8_t fg, uint8_t bg);
+/* a homage's history panel (core/lessons.h): the story, then how the page does it and what to listen to — two columns
+   where the panel is wide, stacked where it isn't, the least important dropped first where it is short */
+struct lesson;
+void ui_lesson(int x, int y, int w, int h, const struct lesson *l);
+int  ui_lesson_rows(void);                           /* a lesson band's height for this screen */
 
 /* pixel widgets */
 void ui_scope(int x, int y, int w, int h);           /* a canvas: the phosphor scope of the output (updates itself) */

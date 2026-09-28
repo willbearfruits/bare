@@ -157,6 +157,14 @@ void seq_load_demo(int n) {
     plat_irq_restore(st);
 }
 
+void seq_begin(const char *title, uint16_t bpm) {
+    uint32_t st = plat_irq_save();
+    seq.playing = false; seq.pattern_only = false;
+    stop_all();
+    reset_song(title, bpm);
+    plat_irq_restore(st);
+}
+
 void seq_import_steps(const char *title, uint16_t bpm, int t, const char *name, uint8_t preset, uint8_t gate, bool mute,
                       const uint8_t *note, const uint8_t *vel) {
     if (t == 0) reset_song(title, bpm);

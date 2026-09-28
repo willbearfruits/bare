@@ -5,6 +5,7 @@
    (up and down, where its band is; across, how dense), the mouse the chosen one; a key of the letter rows or a MIDI
    note centres the chosen cloud's band on its note while held. Enter writes the chosen cloud onto UPIC's page. */
 #include "xen.h"
+#include "harmony.h"
 #include "cloud.h"
 #include "synth.h"
 #include "gfx.h"
@@ -112,7 +113,7 @@ static bool key(uint8_t code, bool down, uint64_t now) {
     if (n >= 0) {                                          /* the chosen cloud around this note, while held */
         if (down == (held_keys[n & 127] != 0)) return true;
         held_keys[n & 127] = down;
-        if (down) { centre(&clouds[sel], n); if (!clouds[sel].on) { set_on(sel, true); held_note = n; } }
+        if (down) { centre(&clouds[sel], harmony_note(n)); if (!clouds[sel].on) { set_on(sel, true); held_note = n; } }
         else if (held_note == n) { set_on(sel, false); held_note = -1; }
         return true;
     }
@@ -223,7 +224,7 @@ static void score(struct rect r, bool fresh) {
 static void draw(uint64_t now) {
     (void)now;
     int cols = text_cols(), rows = text_rows();
-    int sw = 30, x = 2, y = 2, pw = cols - 4 - sw - 1, ph = rows - y - 3;
+    int sw = 30, x = 2, y = XEN_TOP, pw = cols - 4 - sw - 1, ph = rows - y - 3;
     int n_on = 0; for (int k = 0; k < CLOUDS; k++) n_on += clouds[k].on;
     char t[48]; snfmt(t, sizeof t, "CLOUDS · %d sounding · %d seconds", n_on, WINDOW_S);
     ui_panel(x, y, pw, ph, t, C_AMBER);
@@ -260,4 +261,4 @@ static void draw(uint64_t now) {
            "ENTER", "onto UPIC's page", "", "the touchpad: a cloud a finger");
 }
 
-const struct xen_view xen_cloud = { "CLOUDS", key, 0, pointer, draw, midi };
+const struct view xen_cloud = { "CLOUDS", key, 0, pointer, draw, midi, "1956" };

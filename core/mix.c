@@ -4,7 +4,7 @@
 #include "log.h"
 
 struct mix_state mix;
-const char *const mix_names[MIX_CHANNELS] = { "PLAY", "SEQ", "RHYTHM", "INPUT", "STRETCH", "TAPE", "TOUCH", "ANS", "UPIC", "CLOUDS", "DOOM" };
+const char *const mix_names[MIX_CHANNELS] = { "PLAY", "SEQ", "RHYTHM", "INPUT", "STRETCH", "TAPE", "TOUCH", "ANS", "UPIC", "CLOUDS", "DOOM", "LINEAGE" };
 
 /* 4096 × 10^(dB/20), -60 .. +12 dB */
 static const int16_t gain_q12[MIX_DB_MAX - MIX_DB_MIN + 1] = {

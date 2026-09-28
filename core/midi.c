@@ -1,4 +1,5 @@
 #include "midi.h"
+#include "omni.h"
 #include "seq.h"
 #include "libc.h"
 #include "platform.h"
@@ -117,6 +118,28 @@ void midi_out_note(int ch, uint8_t note, uint8_t vel) {
     uint8_t b[3] = { (uint8_t)((vel ? 0x90 : 0x80) | (ch & 15)), (uint8_t)(note & 127), vel ? (uint8_t)MIN(vel, 127) : 64 };
     out_bytes(b, 3);
 }
+
+static void omni_msg(int ch, uint8_t note, int vel) {
+    if (!midi.omni_out || midi.port < 0) return;
+    uint8_t b[3] = { (uint8_t)((vel ? 0x90 : 0x80) | ch), (uint8_t)(note & 127), vel ? (uint8_t)CLAMP(vel, 1, 127) : 64 };
+    out_bytes(b, 3);
+}
+void midi_omni_string(int note, int main_vel, int sub_vel) {
+    if (note < 0 || note > 127) return;
+    omni_msg(0, (uint8_t)note, main_vel);
+    if (sub_vel || !main_vel) omni_msg(3, (uint8_t)note, sub_vel);
+}
+void midi_omni_key(int note, int vel) { if (note >= 0 && note <= 127) omni_msg(0, (uint8_t)note, vel); }
+void midi_omni_chord(const uint8_t *notes, int n) {
+    static uint8_t last[3]; static int nlast;
+    uint32_t st = plat_irq_save();
+    for (int i = 0; i < nlast; i++) omni_msg(1, last[i], 0);
+    nlast = MIN(n, 3);
+    for (int i = 0; i < nlast; i++) { last[i] = notes[i]; omni_msg(1, notes[i], omni.pad_level); }
+    plat_irq_restore(st);
+}
+void midi_omni_bass(int note, int vel) { if (note >= 0 && note <= 127) omni_msg(2, (uint8_t)note, vel); }
+void midi_omni_drum(int gm, int vel) { omni_msg(9, (uint8_t)gm, vel); omni_msg(9, (uint8_t)gm, 0); }
 
 void midi_clock_run(uint32_t frames) {
     if (!midi.clock_out || midi.port < 0 || midi.clock_in) return;

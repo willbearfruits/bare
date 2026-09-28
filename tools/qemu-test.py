@@ -14,6 +14,7 @@ ap.add_argument('--display', default='none')
 ap.add_argument('--arch', default='i386')
 ap.add_argument('--cpu', default='')   # e.g. pentium2 (forces TCG)
 ap.add_argument('--img', action='store_true')   # boot the disk image as a USB stick instead of the ISO
+ap.add_argument('--floppy', action='store_true')   # boot build/i386/bare-floppy.img (make floppy; or --image) from a 1.44 MB floppy drive
 ap.add_argument('--image', default='')   # with --img: boot this file instead of build/<arch>/bare.img (e.g. a dd of a real stick)
 ap.add_argument('--mem', default='512M')   # RAM size: real laptops have 2-4G, which exercises memory placement the default never does
 ap.add_argument('--res', default='')   # WxH: the EDID-preferred mode Limine will pick (e.g. 1024x768 for an old laptop)
@@ -40,6 +41,7 @@ if os.path.exists(qsock): os.remove(qsock)
 if os.path.exists(sock): os.remove(sock)
 kvm = ['-cpu', a.cpu] if a.cpu else (['-enable-kvm', '-cpu', 'host'] if os.access('/dev/kvm', os.W_OK) else [])
 boot = ['-device', 'qemu-xhci,id=xhci', '-drive', f'if=none,id=stick,format=raw,file={a.image or B + "/bare.img"}', '-device', 'usb-storage,drive=stick,bus=xhci.0' + (',port=' + os.environ['HB_STICK_PORT'] if 'HB_STICK_PORT' in os.environ else '')] if a.img else ['-cdrom', f'{B}/bare.iso', '-boot', 'd']
+if a.floppy: boot = ['-drive', f'if=floppy,format=raw,file={a.image or B + "/bare-floppy.img"}', '-boot', 'a']   # the pc machine: q35 has no floppy controller
 disks = []
 for i, spec in enumerate(a.disk):
     kind, _, path = spec.partition(':')
@@ -79,7 +81,7 @@ if a.midi:
         os.mkfifo(f)
     midi_in = os.open(f'{B}/midi.in', os.O_RDWR); midi_out = os.open(f'{B}/midi.out', os.O_RDWR | os.O_NONBLOCK)
     midi = ['-serial', f'pipe:{B}/midi']
-cmd = ['qemu-system-x86_64', '-M', 'q35,pcspk-audiodev=snd0' + os.environ.get('HB_MACHINE', ''), '-m', a.mem, *kvm, *boot, *vga,
+cmd = ['qemu-system-x86_64', '-M', ('pc' if a.floppy else 'q35') + ',pcspk-audiodev=snd0' + os.environ.get('HB_MACHINE', ''), '-m', a.mem, *kvm, *boot, *vga,
        *({'hda': ['-device', 'intel-hda,debug=' + os.environ.get('HDA_DEBUG', '0'), '-device', f'{a.codec},audiodev=snd0'],
           'ac97': ['-device', 'AC97,audiodev=snd0'], 'sb16': ['-device', 'sb16,audiodev=snd0'], 'none': []}[a.sound]), '-audiodev', a.audiodev or f'wav,id=snd0,path={a.wav or B + "/out.wav"}',
        '-serial', f'file:{B}/serial.log', *midi, *os.environ.get('HB_QEMU_EXTRA', '').split(), '-display', a.display, '-monitor', f'unix:{sock},server,nowait', '-qmp', f'unix:{qsock},server,nowait']

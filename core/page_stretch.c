@@ -122,4 +122,4 @@ static void draw(uint64_t now) {
     FOOTER("", "Play something, freeze it: it becomes a very slow place.", "A-' Z-/", "chords and strums still play here");
 }
 
-const struct page page_stretch = { "STRETCH", "F4", KEY_F4, true, key, 0, 0, 0, draw, false, 0, "STR" };
+const struct page page_stretch = { "STRETCH", true, key, 0, 0, 0, draw, false, 0, "STR" };

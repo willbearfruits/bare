@@ -12,6 +12,12 @@
 #include "seq.h"
 #include "stretch.h"
 #include "keys.h"
+#ifndef HB_BASELINE
+#include "meta.h"
+#include "junk.h"
+#include "drone.h"
+#include "phase.h"
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -69,8 +75,8 @@ static double full_cost(void) {
 static double song_cost(void) {
     uint64_t best = ~0ull;
     for (int r = 0; r < reps; r++) {
-        host_key('4', false); host_tap(KEY_ESC); host_run(100); settle();
-        host_tap(KEY_F2); HOST_DEMO(0); host_run(1); host_tap(KEY_F1); host_run(1); play_show(0); host_key('4', true);
+        host_key('6', false); host_tap(KEY_ESC); host_run(100); settle();
+        host_tap(KEY_F2); HOST_DEMO(0); host_run(1); host_tap(KEY_F1); host_run(1); play_show(0); host_key('6', true);
         host_run(1);
         uint64_t total = 0;
         for (int ms = 0; ms < 2000; ms++) {
@@ -203,6 +209,38 @@ int main(int argc, char **argv) {
         for (int r = 0; r < reps; r++) { uint64_t t = run(48 * 300); if (t < best) best = t; }
         printf("UPIC, %d arcs, %d voices sounding     %7.1f cycles/frame\n", upic.narcs, synth_active_voices(), (double)best / (48 * 300) - idle);
         upic.playing = false; upic_clear(); synth_all_off(); settle();
+    }
+    {                                                                   /* METASTASEIS: the first family's 46 strings mid-glissando */
+        meta_defaults(); meta.pos = (uint32_t)20000 << 16; meta.playing = true; settle();
+        uint64_t best = ~0ull;
+        for (int r = 0; r < reps; r++) { meta.pos = (uint32_t)20000 << 16; uint64_t t = run(48 * 200); if (t < best) best = t; }
+        printf("METASTASEIS, the strings sounding        %7.1f cycles/frame\n", (double)best / (48 * 200) - idle);
+        meta.playing = false; settle();
+    }
+    {                                                                   /* MERZBOW: two fingers scraping, the bytes, feedback */
+        junk_defaults(); junk.feedback_on = junk.bytes_on = true; junk.chop = 30;
+        junk_scrape(0, 8000, 9000, 110, true); junk_scrape(1, 24000, 5000, 110, true);
+        for (int i = 0; i < 48 * 100 / CHUNK; i++) HOST_RENDER(buf, CHUNK);
+        uint64_t best = ~0ull;
+        for (int r = 0; r < reps; r++) { uint64_t t = run(48 * 200); if (t < best) best = t; }
+        printf("MERZBOW, scrape x2, feedback, bytes      %7.1f cycles/frame\n", (double)best / (48 * 200) - idle);
+        junk_all_off(); junk_defaults(); settle();
+    }
+    {                                                                   /* RADIGUE: the eight partials, faded in */
+        drone_defaults(); radigue.fade_s = 1; drone_play(true);
+        for (int i = 0; i < 48 * 1200 / CHUNK; i++) HOST_RENDER(buf, CHUNK);
+        uint64_t best = ~0ull;
+        for (int r = 0; r < reps; r++) { uint64_t t = run(48 * 200); if (t < best) best = t; }
+        printf("RADIGUE, eight partials                  %7.1f cycles/frame\n", (double)best / (48 * 200) - idle);
+        drone_defaults(); settle();
+    }
+    {                                                                   /* REICH: four players of marimbas, sixteenths at 175 BPM */
+        uint16_t bpm = seq.bpm; seq.bpm = 175; phase_defaults(); reich.players = 4; reich.hold = 1; phase_play(true);
+        for (int i = 0; i < 48 * 1000 / CHUNK; i++) HOST_RENDER(buf, CHUNK);
+        uint64_t best = ~0ull;
+        for (int r = 0; r < reps; r++) { uint64_t t = run(48 * 300); if (t < best) best = t; }
+        printf("REICH, four players (marimba voices)     %7.1f cycles/frame, %d voices\n", (double)best / (48 * 300) - idle, synth_active_voices());
+        phase_defaults(); seq.bpm = bpm; settle();
     }
     printf("the boot's splash, its sound (idle subtracted):\n");
     splash_cost(idle);

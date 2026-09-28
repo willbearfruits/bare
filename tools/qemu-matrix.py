@@ -32,8 +32,9 @@ CONFIGS = [
     # firmware and boot media
     M('bios-iso'),
     M('bios-usb-stick', media='img'),
-    M('bios-usb-takeover', media='img', pre=['f7', 'tab', 'tab', 'u', 'wait:4000', 'tab', 'tab', 'tab'], log=['xhci: ', 'usb: QEMU USB HARDDRIVE: drive 0'],
+    M('bios-usb-takeover', media='img', pre=['f7', 'tab', 'tab', 'u', 'wait:4000', 'tab', 'tab', 'tab', 'tab'], log=['xhci: ', 'usb: QEMU USB HARDDRIVE: drive 0'],
       note='U in the MIDI view: our USB stack takes over from the BIOS and saves; after the reset the BIOS loads'),
+    M('bios-floppy', media='floppy', machine='pc', note='the 1.44 MB diskette (make floppy): GRUB boots it; like the ISO, nowhere to save'),
     M('uefi-iso', fw='uefi'),
     M('uefi-usb-stick', media='img', fw='uefi', note='no BIOS under UEFI: the stick through our own xHCI driver'),
     M('uefi-usb-hub', media='img', fw='uefi', disk='usb-hub', log=['usb: hub', 'drive 1'], note='a keyboard and a second stick behind a USB hub'),
@@ -168,6 +169,9 @@ def qemu_cmd(c, d):
     if c['kbd'] == 'usb-only': cmd += ['-device', 'qemu-xhci,id=kbdhc', '-device', 'usb-kbd,bus=kbdhc.0', '-device', 'usb-tablet,bus=kbdhc.0']
     if c['media'] == 'iso':
         cmd += ['-cdrom', os.path.join(ROOT, 'build', c['build'], 'bare.iso'), '-boot', 'd']
+    elif c['media'] == 'floppy':                          # the diskette (make floppy), a copy: GRUB loads the kernel
+        shutil.copy(os.path.join(ROOT, 'build', 'i386', 'bare-floppy.img'), img)
+        cmd += ['-drive', f'if=floppy,format=raw,file={img}', '-boot', 'a']
     else:
         if c['image'] == 'i386-only':
             subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'mkimage.py'), os.path.join(ROOT, 'build', 'i386', 'bare.elf'), img],
@@ -290,8 +294,8 @@ def run(c):
         r['boot'] = r['tries'][0] > 0
         if r['boot']:
             time.sleep(2 if slow else 0.5)
-            mon('sendkey 4 1600'); time.sleep(0.3)
-            for k in 'asdfgh': mon('sendkey ' + k); time.sleep(0.12)
+            mon('sendkey 6 1600'); time.sleep(0.3)                 # C major, then strums on the strings (Z …)
+            for k in 'zxcvbn': mon('sendkey ' + k); time.sleep(0.12)
             time.sleep(0.8)
             mon('screendump ' + os.path.join(d, 'screen.ppm')); time.sleep(0.6 if slow else 0.3)
             for k in c['pre']:

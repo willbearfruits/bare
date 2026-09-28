@@ -1,4 +1,5 @@
-/* FILE: projects on the stick. The instrument runs from RAM; the stick only matters when saving or loading. */
+/* FILE: projects on the stick. The instrument runs from RAM; the stick only matters when saving or loading. Tab steps
+   through its views: projects, SONGS, MIDI, KEYS (which F key opens what), LOG, INSTALL. */
 #include "ui.h"
 #include "disk.h"
 #include "seq.h"
@@ -14,6 +15,7 @@
 #include "net.h"
 #include "link.h"
 #include "platform.h"
+#include "fkeys.h"
 
 extern uint32_t app_version; extern struct fb_info app_fb;
 
@@ -21,7 +23,7 @@ static int cursor, first;
 static bool naming, confirm_del;
 static char name[24]; static int name_len;
 static char msg[64]; static uint64_t msg_ms; static bool msg_bad;
-enum { V_PROJECTS, V_SONGS, V_MIDI, V_LOG, V_INSTALL, VIEWS };
+enum { V_PROJECTS, V_SONGS, V_MIDI, V_KEYS, V_LOG, V_INSTALL, VIEWS };
 static struct fat_entry wavs[64]; static int nwavs = -1, wav_cur, import_slot;   /* nwavs < 0: not listed yet */
 static int view; static bool tone_on, all_on, cam_on; static int log_back;   /* TAB: MIDI, then the kernel log and the sound device */
 static struct rect list_px;
@@ -30,6 +32,8 @@ static struct rect list_px;
 static int targets[TARGETS], ntargets = -1, target_cur;
 static char target_desc[TARGETS][40];
 static bool erase_asked, relist; static char erase_typed[8]; static int erase_len;   /* relist: after a copy ends */
+/* KEYS: the key chosen, carried (Space picks it up, the arrows move it), the default asked for */
+static int kcur; static bool carrying, reset_asked; static struct rect keys_px;
 static void list_targets(void) {
     ntargets = 0;
     for (int d = 0; d < plat_blk_drives() && ntargets < TARGETS; d++) {
@@ -44,6 +48,7 @@ static void say(const char *m, uint64_t now) {
     snfmt(msg, sizeof msg, "%s", m); msg_ms = now;
     size_t n = strlen(m); msg_bad = n >= 6 && memcmp(m + n - 6, "failed", 6) == 0;   /* "save failed" and friends in red */
 }
+void file_show_keys(void) { view = V_KEYS; carrying = reset_asked = false; }
 static int slots(void) { return disk.have_tape ? (int)disk.tape.slots : 0; }
 
 static bool typing(void) { return naming || erase_asked; }
@@ -76,7 +81,36 @@ static bool key(uint8_t code, bool down, uint64_t now) {
     }
     if (song.exporting) { if (code == KEY_ESC) song_export_cancel(); return true; }
     if (inst.running) { if (code == KEY_ESC) install_cancel(); return true; }        /* the copy: only Esc */
-    if (code == KEY_TAB) { view = (view + 1) % VIEWS; log_back = 0; nwavs = -1; ntargets = -1; return true; }
+    if (code == KEY_TAB) { view = (view + 1) % VIEWS; log_back = 0; nwavs = -1; ntargets = -1; carrying = reset_asked = false; return true; }
+    if (view == V_KEYS) {
+        struct fkey *f = &fkeys[kcur];
+        bool only_file = fkey_page(f) == PAGE_FILE && !fkeys_file_elsewhere(kcur);
+        if (reset_asked) {                                 /* R asked: Y sets the default keys, any other key keeps these */
+            reset_asked = false;
+            if (code == 'y') { fkeys_default(fkeys); fkeys_changed(now); say("the default keys", now); } else say("kept", now);
+            return true;
+        }
+        switch (code) {
+        case KEY_UP: case KEY_DOWN: {
+            int to = kcur + (code == KEY_DOWN ? 1 : -1);
+            if (to < 0 || to >= FKEYS) break;
+            if (carrying) { fkeys_swap(kcur, to); fkeys_changed(now); }
+            kcur = to;
+            break; }
+        case KEY_LEFT: case KEY_RIGHT: {                   /* off, the pages, the views, the instruments, round */
+            if (only_file) { say("FILE stays on a key: Space carries it to another", now); break; }
+            int n = fkeys_places(), i = (fkeys_place_of(f) + (code == KEY_RIGHT ? 1 : n - 1)) % n;
+            fkeys_place(i, f); fkeys_changed(now);
+            break; }
+        case KEY_SPACE: carrying = !carrying; break;
+        case KEY_DELETE: case KEY_BACKSPACE:
+            if (only_file) { say("FILE stays on a key: Space carries it to another", now); break; }
+            fkeys_place(0, f); fkeys_changed(now);
+            break;
+        case 'r': reset_asked = true; say("the default keys? Y sets them, any other key keeps these", now); break;
+        }
+        return true;
+    }
     if (view == V_INSTALL) {
         if (ntargets < 0) list_targets();
         switch (code) {
@@ -123,6 +157,7 @@ static bool key(uint8_t code, bool down, uint64_t now) {
         case 'k': midi.clock_out = !midi.clock_out; break;
         case 'n': midi.notes_out = !midi.notes_out; break;
         case 't': midi.thru = !midi.thru; break;
+        case 'o': midi.omni_out = !midi.omni_out; break;
         case 'l': link_enable(!lnk.on); say(lnk.on ? "Link on" : "Link off", now); break;
         case 'u':                                          /* a BIOS boot: our own USB stack takes over, for USB MIDI */
             if (plat_usb() != 1) { say(plat_usb() == 2 ? "USB is ours already" : "no USB controller here that this can drive", now); break; }
@@ -212,6 +247,7 @@ static void write_report(uint64_t now) {
 
 static void pointer(uint64_t now) {
     (void)now;
+    if (view == V_KEYS) { if (ptr.pressed && ui_in(keys_px, ptr.x, ptr.y)) kcur = CLAMP((ptr.y - keys_px.y) / text_font()->height, 0, FKEYS - 1); return; }
     if (!ptr.pressed || !ui_in(list_px, ptr.x, ptr.y)) return;
     int row = (ptr.y - list_px.y) / text_font()->height;
     if (first + row < slots()) cursor = first + row;
@@ -249,7 +285,7 @@ static void draw_log(int x, int y, int w, int h) {
         if (log_line(back, line, sizeof line) < 0) continue;
         text_str_n(x + 2, top + r, line, w - 4, C_TEXT, C_PANEL);
     }
-    const char *leg[] = { "TAB", "projects", "↑ ↓", "scroll", "W", "write a hardware report to the stick", "T", tone_on ? "tone off" : "test tone: 440 Hz, not through the synth",
+    const char *leg[] = { "TAB", "install", "↑ ↓", "scroll", "W", "write a hardware report to the stick", "T", tone_on ? "tone off" : "test tone: 440 Hz, not through the synth",
                           "P", all_on ? "outputs follow the jacks" : "every output on, ignore the jacks" };
     ui_legend(x + 2, y + h - 2, w - 4, 1, leg, 5, C_PANEL);
 }
@@ -279,6 +315,7 @@ static void draw_midi(int x, int y, int w, int h, uint64_t now) {
     ui_led(x + 12, y + 7, midi.notes_out, C_GREEN, "the tracker's channels 1-8 as MIDI channels 1-8 (N)", C_PANEL);
     ui_led(x + 12, y + 8, midi.clock_out, C_GREEN, "clock, start and stop at the tempo (K)", C_PANEL);
     ui_led(x + 12, y + 9, midi.thru, C_GREEN, "thru: what comes in goes back out (T)", C_PANEL);
+    ui_led(x + 12, y + 10, midi.omni_out, C_GREEN, "the omnichord as the OM-108 sends it: strings 1, chord 2, bass 3, sub 4, drums 10 (O)", C_PANEL);
     text_str(x + 2, y + 11, "LINK", C_DIM, C_PANEL);
     ui_led(x + 12, y + 11, lnk.on, C_GREEN, "Ableton Link: tempo, beat and start/stop with other programs on the network (L)", C_PANEL);
     char nb[128]; snfmt(nb, sizeof nb, "network: %s%s%s", net.status, lnk.on ? " · link: " : "", lnk.on ? lnk.status : "");
@@ -288,8 +325,32 @@ static void draw_midi(int x, int y, int w, int h, uint64_t now) {
     if (midi.ext_bpm) { snfmt(buf, sizeof buf, "clock %u BPM", midi.ext_bpm); text_str(x + 2 + ui_cells("0000 messages in · 00000 bytes out  "), y + 14, buf, C_GREEN, C_PANEL); }
     for (int i = 0; i < 8 && y + 16 + i < y + h - 2; i++) text_str_n(x + 4, y + 16 + i, midi.monitor[i], w - 8, i ? C_TEXT : C_BRIGHT, C_PANEL);
     if (msg[0] && now - msg_ms < 3000) text_str(x + w - 2 - ui_cells(msg), y + 2, msg, msg_bad ? C_RED : C_GREEN, C_PANEL);
-    if (usb == 1) LEGEND(x + 2, y + h - 2, w - 4, 1, C_PANEL, "← →", "port", "↑ ↓", "in channel", "L", "Link", "C", "clock in", "N", "notes out", "K", "clock out", "T", "thru", "U", "USB", "TAB", "log");
-    else LEGEND(x + 2, y + h - 2, w - 4, 1, C_PANEL, "← →", "port", "↑ ↓", "in channel", "L", "Link", "C", "clock in", "N", "notes out", "K", "clock out", "T", "thru", "TAB", "log");
+    if (usb == 1) LEGEND(x + 2, y + h - 2, w - 4, 1, C_PANEL, "← →", "port", "↑ ↓", "in channel", "L", "Link", "C", "clock in", "N", "notes out", "K", "clock out", "T", "thru", "O", "omnichord", "U", "USB", "TAB", "keys");
+    else LEGEND(x + 2, y + h - 2, w - 4, 1, C_PANEL, "← →", "port", "↑ ↓", "in channel", "L", "Link", "C", "clock in", "N", "notes out", "K", "clock out", "T", "thru", "O", "omnichord", "TAB", "keys");
+}
+
+/* KEYS: what each F key opens — a page, a view of XENAKIS, an instrument, or nothing — kept in KEYS.TXT on the stick */
+static void draw_keys(int x, int y, int w, int h, uint64_t now) {
+    ui_panel(x, y, w, h, "KEYS · what each F key opens", C_AMBER);
+    text_str_n(x + 2, y + 1, fkeys_status, w - 4, fkeys_trouble ? C_RED : fkeys_pending() ? C_DIM : C_TEXT, C_PANEL);
+    int ry = y + 3, rows = MIN(FKEYS, h - 7);
+    keys_px = text_rect(x + 1, ry, w - 2, rows);
+    for (int k = 0; k < rows; k++) {
+        const struct fkey *f = &fkeys[k];
+        bool cur = k == kcur, carried = cur && carrying;
+        uint8_t bg = carried ? C_CYAN : cur ? C_BORDER : C_PANEL, ink = carried ? C_BLACK : 0;
+        text_fill(x + 1, ry + k, w - 2, 1, ' ', C_TEXT, bg);
+        text_put(x + 2, ry + k, carried ? G_DIAMOND : ' ', C_BLACK, bg);
+        text_str(x + 4, ry + k, fkey_names[k], ink ? ink : cur ? C_AMBER : C_DIM, bg);
+        if (f->kind == FK_OFF) { text_str(x + 10, ry + k, "·  off", ink ? ink : C_DIM, bg); continue; }
+        text_str_n(x + 10, ry + k, fkey_label(f), 12, ink ? ink : C_BRIGHT, bg);
+        bool only_file = fkey_page(f) == PAGE_FILE && !fkeys_file_elsewhere(k);
+        text_str_n(x + 24, ry + k, only_file ? "always on a key: projects, songs, MIDI, these keys, the log" : fkey_about(f), w - 26,
+                   ink ? ink : f->kind == FK_INST && fkey_inst(f) < 0 ? C_RED : C_DIM, bg);
+    }
+    if (msg[0] && now - msg_ms < 4000) text_str_n(x + 2, y + h - 3, msg, w - 4, msg_bad ? C_RED : C_GREEN, C_PANEL);
+    LEGEND(x + 2, y + h - 2, w - 4, 1, C_PANEL, "↑ ↓", carrying ? "carry it" : "key", "← →", "what it opens", "SPACE", carrying ? "put it down" : "pick it up",
+           "DEL", "off", "R Y", "default", "TAB", "log");
 }
 
 /* SONGS: export the song as a WAV onto the stick; the WAVs there, to bring into the sampler or onto the tape */
@@ -379,11 +440,12 @@ static void draw(uint64_t now) {
     if (view == V_INSTALL && !song.exporting) { draw_install(x, y, w, h, now); FOOTER("", "Installing erases the chosen drive: another system on it is gone for good."); return; }
     if (view == V_SONGS || song.exporting) { draw_songs(x, y, w, h, now); FOOTER("", "Songs are 48 kHz 16-bit WAVs in the root of the stick's FAT partition, which any computer can read."); return; }
     if (view == V_LOG) { draw_log(x, y, w, h); FOOTER("", "The kernel log, and the sound device as the driver sees it. A photo of this helps find a problem."); return; }
+    if (view == V_KEYS) { draw_keys(x, y, w, h, now); FOOTER("", "KEYS.TXT on the stick keeps these keys; a computer can edit it too.", "", "Ctrl+1 … 0 - = are the same keys."); return; }
     if (view == V_MIDI) { draw_midi(x, y, w, h, now); FOOTER("", "USB MIDI devices can be plugged in any time (after U on a BIOS boot). Serial ports run at 38400 baud, the PC mode of Roland and Yamaha."); return; }
     ui_panel(x, y, w, h, "PROJECTS", C_AMBER);
     char buf[128];
     text_str_n(x + 2, y + 1, disk.status, w - 4, disk.have_tape ? C_TEXT : C_RED, C_PANEL);
-    snfmt(buf, sizeof buf, "BARE! %s · build %u · %ux%u · %dx%d cells", BARE_RELEASE, app_version, app_fb.width, app_fb.height, cols, rows);
+    snfmt(buf, sizeof buf, "BARE! %s · build %u · %ux%u · %dx%d cells", BARE_RELEASE BARE_STAGE, app_version, app_fb.width, app_fb.height, cols, rows);
     if (w > ui_cells(disk.status) + ui_cells(buf) + 8) text_str(x + w - 2 - ui_cells(buf), y + 1, buf, C_DIM, C_PANEL);
     int n = slots(), list_h = h - 7;
     if (cursor >= first + list_h) first = cursor - list_h + 1;
@@ -416,10 +478,10 @@ static void draw(uint64_t now) {
         snfmt(buf, sizeof buf, "%s_", name); text_str(x + 11, by, buf, C_BRIGHT, C_BORDER);
         LEGEND(x + 40, by, w - 42, 1, C_PANEL, "ENTER", "save", "ESC", "cancel");
     } else {
-        LEGEND(x + 2, by, w - 4, 1, C_PANEL, "↑ ↓", "select", "ENTER", "load", "S", "save here", "D Y", "delete", "R", "rescan drives", "TAB", "songs, MIDI, log");
+        LEGEND(x + 2, by, w - 4, 1, C_PANEL, "↑ ↓", "select", "ENTER", "load", "S", "save here", "D Y", "delete", "R", "rescan drives", "TAB", "songs, MIDI, keys, log");
         if (msg[0] && now - msg_ms < 3000) text_str(x + w - 2 - ui_cells(msg), by - 1, msg, msg_bad ? C_RED : C_GREEN, C_PANEL);
     }
     FOOTER("", "The instrument runs from RAM: the stick can be pulled while you play.", "R", "rescan to save again", "", "BARE.UPD on any FAT drive updates at boot.");
 }
 
-const struct page page_file = { "FILE", "F7", KEY_F7, false, key, typing, pointer, 0, draw };
+const struct page page_file = { "FILE", false, key, typing, pointer, 0, draw };

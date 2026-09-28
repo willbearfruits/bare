@@ -1,4 +1,5 @@
 #include "app.h"
+#include "harmony.h"
 #include "ui.h"
 #include "touch.h"
 #include "install.h"
@@ -6,6 +7,7 @@
 #include "link.h"
 #include "gfx.h"
 #include "omni.h"
+#include "carlos.h"
 #include "seq.h"
 #include "wave.h"
 #include "stretch.h"
@@ -29,6 +31,9 @@
 #include "upic.h"
 #include "inst.h"
 #include "doomhost.h"
+#include "fkeys.h"
+#include "xen.h"
+#include "lineage.h"
 
 #ifndef BUILD_VERSION
 #define BUILD_VERSION 0
@@ -43,8 +48,10 @@ bool app_thermal;                 /* F12: the machine's temperature plays the fi
 int  app_temp = -1, app_fan = -1;
 struct fb_info app_fb;
 
-static int page = PAGE_PLAY;
+static int page = PAGE_PLAY, cur_key;                         /* the page showing; the key whose tab is lit */
 int app_page(void) { return page; }
+int app_key(void) { return cur_key; }
+static void arrive(int k, uint64_t now);                       /* key k opens what it opens (below) */
 static uint8_t splash_shown;                                  /* the splash this boot played + 1: for the stick, so the next boot picks another */
 static bool ctrl;
 
@@ -86,6 +93,7 @@ void app_init(const struct fb_info *fb, uint32_t sample_rate) {
     midi_init(sample_rate);
     seq_init_rate(sample_rate);
     omni_init();
+    carlos_init();
     net_init();
     link_init();
     seq_init();
@@ -95,7 +103,7 @@ void app_init(const struct fb_info *fb, uint32_t sample_rate) {
     gendy_init();
     sieve_init();
     plan_memory(sample_rate);
-    logf("app: BARE! %s, build %u", BARE_RELEASE, app_version);
+    logf("app: BARE! %s, build %u", BARE_RELEASE BARE_STAGE, app_version);
     /* storage: find the stick, apply updates, bring back the last project */
     ui_boot_message("looking for storage", "");
     disk_init();
@@ -117,6 +125,7 @@ void app_init(const struct fb_info *fb, uint32_t sample_rate) {
         disk.tape.splash = splash_shown = (uint8_t)(splash + 1);
     }
     inst_load_all();                                          /* the instruments, before the project that may tune them */
+    fkeys_load();                                             /* which key opens what: KEYS.TXT, which may name them */
     if (disk_autoload()) logf("app: autoloaded last project");
     uint8_t vol, flags, theme; uint16_t mw;
     if (disk_settings(&vol, &flags, &mw, &theme)) {
@@ -127,9 +136,10 @@ void app_init(const struct fb_info *fb, uint32_t sample_rate) {
              flags & SET_ONEBIT ? ", 1-bit" : "", flags & SET_LINK ? ", Link" : "", gfx_theme_name(gfx_theme_now()));
         /* MIDI: the port (if this machine has it), the channel, and the four switches */
         midi.in_channel = (uint8_t)MIN(mw >> 4 & 31, 16);
-        midi.clock_in = mw >> 9 & 1; midi.clock_out = mw >> 10 & 1; midi.notes_out = mw >> 11 & 1; midi.thru = mw >> 12 & 1;
+        midi.clock_in = mw >> 9 & 1; midi.clock_out = mw >> 10 & 1; midi.notes_out = mw >> 11 & 1; midi.thru = mw >> 12 & 1; midi.omni_out = mw >> 13 & 1;
         if ((mw & 15) && midi_open((mw & 15) - 1)) logf("app: MIDI port %d from the stick", (mw & 15) - 1);
     }
+    for (int k = 0; k < FKEYS; k++) if (fkeys[k].kind != FK_OFF) { arrive(k, 0); break; }   /* F1's, or the first key's */
     if (splash >= 0) splash_start(splash);
 }
 
@@ -163,12 +173,50 @@ static bool shift_function(uint8_t code, uint64_t now) {
         char m[48]; snfmt(m, sizeof m, "colours: %s (%d of %d)", gfx_theme_name(gfx_theme_now()), gfx_theme_now() + 1, GFX_THEMES);
         ui_notice(m, now); return true; }
     case 'z': case 'y': { char m[48]; if (code == 'z') undo_undo(m, sizeof m); else undo_redo(m, sizeof m); ui_notice(m, now); return true; }
+    case 'k':                                                         /* keys follow the chord, or not */
+        harmony_on = !harmony_on;
+        ui_notice(harmony_on ? "keys follow the chord" : "keys play as they are", now); return true;
     }
     return false;
 }
 
-/* Keys: the F keys (or Ctrl+1…9) switch pages and do nothing else; Shift+key is the function layer; the rest
-   goes to the page, and what the page leaves plays chords and strums on pages that play them. */
+/* The F keys open what core/fkeys.h's layout says. Inside a page: PLAY's instrument (+1, 0 the omnichord) and
+   LINEAGE's view (XENAKIS keeps its own view as it was left); a key opening the whole page comes back to where it was
+   left, the first time to the page's start. */
+static int inside(int pg) { return pg == PAGE_PLAY ? play_showing() : pg == PAGE_LINEAGE ? lineage_current() : -1; }
+static int start_of(int pg) { return pg == PAGE_PLAY ? 0 : pg == PAGE_LINEAGE ? LV_ANS : -1; }   /* as the pages start */
+static void arrive(int k, uint64_t now) {
+    struct fkey *f = &fkeys[k], *was = &fkeys[cur_key];
+    int i = f->kind == FK_INST ? fkey_inst(f) : 0;
+    if (i < 0) { char m[48]; snfmt(m, sizeof m, "%s: no %s on this stick", fkey_names[k], f->inst); ui_notice(m, now); return; }
+    if (was->kind == FK_PAGE && was->page == page) was->left_at = (int8_t)inside(page);
+    int to = fkey_page(f), at = f->kind == FK_INST ? i + 1 : f->kind == FK_VIEW ? f->view : f->left_at >= 0 ? f->left_at : start_of(to);
+    if (to == PAGE_PLAY) play_show(at); else if (to == PAGE_LINEAGE) lineage_goto(at);
+    if (f->kind == FK_VIEW && f->sub) xen_goto(f->sub - 1);            /* one of XENAKIS's own views */
+    page = to; cur_key = k;
+}
+/* Pressed again: a key opening a view that no longer shows (another was picked on the bar) goes back to it; one
+   opening XENAKIS or one of its views steps XENAKIS's views; any other steps its page (PLAY's instruments, LINEAGE's
+   homages). */
+void app_goto_key(int k, uint64_t now) {
+    if (k < 0 || k >= FKEYS || fkeys[k].kind == FK_OFF) return;
+    const struct fkey *f = &fkeys[k];
+    if (k == cur_key && fkey_page(f) == page) {
+        if (f->kind == FK_VIEW && lineage_current() != f->view) arrive(k, now);
+        else if (f->kind == FK_VIEW && f->view == LV_XEN) xen_again();
+        else if (ui_pages[page]->again) ui_pages[page]->again(now);
+        return;
+    }
+    arrive(k, now);
+}
+static int fkey_of(uint8_t code) {                            /* F1 … F12, or Ctrl+1 … 9, 0, -, = : 0 … 11 */
+    if (code >= KEY_F1 && code <= KEY_F12) return code - KEY_F1;
+    if (!ctrl) return -1;
+    return code >= '1' && code <= '9' ? code - '1' : code == '0' ? 9 : code == '-' ? 10 : code == '=' ? 11 : -1;
+}
+
+/* Keys: the F keys (or Ctrl+1…9, 0, -, =) open what they open and do nothing else; Shift+key is the function layer;
+   the rest goes to the page, and what the page leaves plays chords and strums on pages that play them. */
 static bool consumed[256];                                /* a key whose press was a function: its release is too */
 static void bare_key(struct key_event ev, uint64_t now) {
     if (splash_showing()) { if (ev.down) { splash_skip(); consumed[ev.code] = true; } return; }   /* any key ends it */
@@ -179,16 +227,8 @@ static void bare_key(struct key_event ev, uint64_t now) {
     if (pg->typing && pg->typing()) { pg->key_event(ev.code, ev.down, now); return; }
     if (!ev.down && consumed[ev.code]) { consumed[ev.code] = false; return; }
     if (ev.down) {
-        int to = -1;                                          /* a page's key; pressed on that page, its next view */
-        for (int i = 0; i < PAGE_COUNT; i++) if (ev.code == ui_pages[i]->key) to = i;
-        if (ctrl && ev.code >= '1' && ev.code <= '9' && ev.code < '1' + PAGE_COUNT) to = ev.code - '1';
-        if (ctrl && ev.code == '0' && PAGE_COUNT > 9) to = 9;              /* Ctrl+0: the tenth */
-        if (ctrl && ev.code == '-' && PAGE_COUNT > 10) to = 10;            /* Ctrl+-: the eleventh */
-        if (ctrl && ev.code == '=' && PAGE_COUNT > 11) to = 11;            /* Ctrl+=: the twelfth */
-        if (to >= 0) {
-            if (to == page && ui_pages[to]->again) ui_pages[to]->again(now);
-            page = to; consumed[ev.code] = true; return;
-        }
+        int k = fkey_of(ev.code);                             /* a key that opens nothing does nothing */
+        if (k >= 0) { app_goto_key(k, now); consumed[ev.code] = true; return; }
         if (ui_shift && shift_function(ev.code, now)) { consumed[ev.code] = true; return; }
         switch (ev.code) {
         case KEY_VOLUP:   audio_volume_step(+1); return;
@@ -209,8 +249,8 @@ static void bare_key(struct key_event ev, uint64_t now) {
 }
 
 /* Typing iddqd, on any page, starts Doom (or goes back to it): the letters still do what they do on the page. While
-   Doom shows, it has every key but the F keys (they leave it for their page) and the laptop's volume keys; a key held
-   from before it started is let go on BARE!'s side. */
+   Doom shows, it has every key but the F keys that open something (they leave it for that) and the laptop's volume
+   keys; a key held from before it started is let go on BARE!'s side. */
 static uint32_t bare_held[8];                             /* keys pressed on BARE!'s side and not let go yet */
 static bool iddqd(struct key_event ev, uint64_t now) {
     static const char word[] = "iddqd";
@@ -226,9 +266,8 @@ static bool iddqd(struct key_event ev, uint64_t now) {
 static void handle_key(struct key_event ev, uint64_t now) {
     uint32_t mask = 1u << (ev.code & 31), *hb = &bare_held[ev.code >> 5];
     if (doom_showing() && !(!ev.down && (*hb & mask))) {
-        int to = -1;
-        for (int i = 0; i < PAGE_COUNT; i++) if (ev.code == ui_pages[i]->key) to = i;
-        if (to >= 0) { if (ev.down) { doom_leave(); page = to; consumed[ev.code] = true; } return; }
+        int k = ev.code >= KEY_F1 && ev.code <= KEY_F12 ? ev.code - KEY_F1 : -1;
+        if (k >= 0 && fkeys[k].kind != FK_OFF) { if (ev.down) { doom_leave(); arrive(k, now); consumed[ev.code] = true; } return; }
         switch (ev.code) {
         case KEY_VOLUP:   if (ev.down) audio_volume_step(+1); return;
         case KEY_VOLDOWN: if (ev.down) audio_volume_step(-1); return;
@@ -250,6 +289,7 @@ static void handle_key(struct key_event ev, uint64_t now) {
 #define TAG_MIDI 0x600
 static uint32_t midi_down[4], midi_held[4];                /* notes a key holds; notes the pedal holds */
 static bool pedal; static int32_t bend;
+static uint8_t played[128];                                /* the note each incoming one sounds (keys follow the chord) */
 static inline bool bit(const uint32_t *m, int n) { return m[n >> 5] >> (n & 31) & 1; }
 static inline void set_bit(uint32_t *m, int n, bool on) { if (on) m[n >> 5] |= 1u << (n & 31); else m[n >> 5] &= ~(1u << (n & 31)); }
 static void app_midi(struct midi_msg m, uint64_t now) {
@@ -259,7 +299,8 @@ static void app_midi(struct midi_msg m, uint64_t now) {
         splash_skip();                                         /* a note ends the splash, and plays */
         if (pg->midi && pg->midi(n, m.d2, now)) return;
         int sound = pg->strum_sound ? pg->strum_sound() : omni.strum_preset;
-        synth_note_on(n, m.d2, (uint8_t)sound, (uint16_t)(TAG_MIDI | n));
+        played[n] = (uint8_t)harmony_note(n);
+        synth_note_on(played[n], m.d2, (uint8_t)sound, (uint16_t)(TAG_MIDI | n));
         if (bend) synth_tag_bend((uint16_t)(TAG_MIDI | n), bend);
         set_bit(midi_down, n, true); set_bit(midi_held, n, false);
     } else if (type == 0x80 || type == 0x90) {
@@ -309,6 +350,7 @@ static void personality_tick(uint64_t now) {
 void app_background(uint64_t now) {
     struct key_event ev;
     while (plat_key_poll(&ev)) handle_key(ev, now);
+    omni_work(now);
     stretch_work();
     tape_work();
     sampler_work();
@@ -317,6 +359,7 @@ void app_background(uint64_t now) {
     net_work(now);
     link_work(now);
     perf_work(now);
+    fkeys_work(now);
     ans_work(now);
     upic_work(now);
     midi_work(now);
@@ -324,7 +367,7 @@ void app_background(uint64_t now) {
     while (midi_next(&mm)) if (!song.exporting) app_midi(mm, now);   /* notes would end up in the export */
     personality_tick(now);
     uint16_t mw = (uint16_t)((midi.port + 1) & 15) | (uint16_t)(midi.in_channel << 4) | (uint16_t)(midi.clock_in << 9) |
-                  (uint16_t)(midi.clock_out << 10) | (uint16_t)(midi.notes_out << 11) | (uint16_t)(midi.thru << 12);
+                  (uint16_t)(midi.clock_out << 10) | (uint16_t)(midi.notes_out << 11) | (uint16_t)(midi.thru << 12) | (uint16_t)(midi.omni_out << 13);
     disk_note_settings((uint8_t)audio_volume_index(),                   /* rides along with the next header write */
                        (uint8_t)((audio_muted() ? SET_MUTED : 0) | (plat_audio_onebit_chosen() ? SET_ONEBIT : 0) | (lnk.on ? SET_LINK : 0)), mw,
                        (uint8_t)gfx_theme_now(), splash_shown);
@@ -345,10 +388,12 @@ void app_step(uint64_t now) {
         if (splash_showing()) { splash_had_screen = true; gfx_present(); return; }
     }
     if (splash_had_screen) { splash_had_screen = false; ui_redraw_all(); }   /* ended: by itself, a key, a click or a note */
+    bool tabs = ui_tabs_pointer(now);                          /* a click or drag on the title bar's tabs */
+    if (fkey_page(&fkeys[cur_key]) != page) { int k = fkeys_for_page(page); if (k >= 0) cur_key = k; }   /* keys moved, an export */
     const struct page *pg = ui_pages[page];
     int sound = pg->strum_sound ? pg->strum_sound() : -1;
     omni.strum_override = sound >= 0 ? (uint8_t)sound : 0xFF;
-    if (pg->pointer) pg->pointer(now);
+    if (pg->pointer && !tabs) pg->pointer(now);
     ui_draw(now, page);
     text_flush();
     ui_scan(wave_scan_tab);                                   /* the screen under the pointer is the SCAN wave */

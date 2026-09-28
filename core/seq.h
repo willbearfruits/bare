@@ -43,6 +43,7 @@ extern struct seq_pattern seq_pat[SEQ_PATTERNS];
 
 void seq_init(void);
 void seq_load_demo(int n);              /* 0.. — see seq_demo_count() */
+void seq_begin(const char *title, uint16_t bpm);   /* stopped, every pattern empty (64 rows), one entry in the order */
 int  seq_demo_count(void);
 const char *seq_demo_title(int n);
 void seq_play(bool on);

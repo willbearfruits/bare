@@ -195,23 +195,33 @@ static bool is_iwad(const char *path, struct fat_file *fi) {
     uint8_t h[12];
     return fat_find(&disk.fat, path, fi) && fi->size >= 12 && fat_read(&disk.fat, fi, 0, h, 12) && memcmp(h, "IWAD", 4) == 0;
 }
-static bool find_iwad(char *out, int cap, uint32_t *size) {
+/* the IWAD's path as fat_find takes it ("DOOM/DOOM.WAD", "freedoom1.wad"), and whether it is in the DOOM folder */
+static bool find_iwad_path(char *out, int cap, uint32_t *size, bool *in_folder) {
     struct fat_file fi; char p[40];
     for (int d = 0; d < 2; d++) {
         const char *dir = d == 0 ? "DOOM" : "";
         for (unsigned i = 0; i < ARRAY_LEN(known); i++) {
             snfmt(p, sizeof p, "%s%s%s", dir, *dir ? "/" : "", known[i]);
-            if (is_iwad(p, &fi)) { snfmt(out, (size_t)cap, "%s%s", d == 0 && folder[0] ? "" : "/", d == 0 && folder[0] ? known[i] : p); *size = fi.size; return true; }
+            if (is_iwad(p, &fi)) { snfmt(out, (size_t)cap, "%s", p); *size = fi.size; *in_folder = d == 0; return true; }
         }
         struct fat_entry e[16];
         int n = fat_list(&disk.fat, dir, "WAD", e, 16);
         for (int i = 0; i < n; i++) {
             snfmt(p, sizeof p, "%s%s%s", dir, *dir ? "/" : "", e[i].name);
-            if (is_iwad(p, &fi)) { snfmt(out, (size_t)cap, "%s%s", d == 0 && folder[0] ? "" : "/", d == 0 && folder[0] ? e[i].name : p); *size = fi.size; return true; }
+            if (is_iwad(p, &fi)) { snfmt(out, (size_t)cap, "%s", p); *size = fi.size; *in_folder = d == 0; return true; }
         }
     }
     return false;
 }
+/* as the engine names it: inside Doom's folder by its name, else from the root */
+static bool find_iwad(char *out, int cap, uint32_t *size) {
+    char p[40]; bool in_folder;
+    if (!find_iwad_path(p, sizeof p, size, &in_folder)) return false;
+    if (in_folder && folder[0]) snfmt(out, (size_t)cap, "%s", p + strlen(folder) + 1);
+    else snfmt(out, (size_t)cap, "/%s", p);
+    return true;
+}
+bool doom_wad_path(char *out, int cap, uint32_t *size) { bool in_folder; return disk.have_boot_fat && find_iwad_path(out, cap, size, &in_folder); }
 
 /* ---- starting, stopping, leaving, coming back ---- */
 static void stopped(void) {

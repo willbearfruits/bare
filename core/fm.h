@@ -31,6 +31,9 @@ struct fm_patch {
 struct fm_algo { const char *name; uint8_t mod_mask[FM_OPS]; uint8_t carriers; };
 
 extern struct fm_patch fm_bank[FM_PATCHES];
+/* patches that don't change: the omnichord's FM PIANO, CELESTE and VIBES (a preset's src FM_PATCHES + i) */
+#define FM_FIXED 5
+const struct fm_patch *fm_patch_of(int src);      /* the user's bank below FM_PATCHES, the fixed ones above */
 extern const struct fm_algo fm_algos[FM_ALGOS];
 
 /* per-voice state, owned by the synth voice */

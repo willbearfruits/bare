@@ -1,4 +1,5 @@
 #include "disk.h"
+#include "fkeys.h"
 #include "inst.h"
 #include "project.h"
 #include "libc.h"
@@ -129,7 +130,7 @@ void disk_init(void) {
     logf("disk: %s", disk.status);
 }
 
-void disk_rescan(void) { plat_blk_rescan(); disk_init(); inst_load_all(); }   /* the stick may carry other instruments */
+void disk_rescan(void) { plat_blk_rescan(); disk_init(); inst_load_all(); fkeys_load(); }   /* the stick may carry other instruments, other keys */
 
 uint32_t disk_pack_date(void) {
     struct rtc_time t;

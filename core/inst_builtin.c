@@ -60,7 +60,7 @@ const struct inst_text inst_builtin[] = {
     "[knobs]\n"
     "knobs: width detune cutoff resonance attack release level\n" },
   { "SIEVHARP.TXT",
-    "# SIEVEHARP: a harp tuned to a sieve (S1 on the XENAKIS page's SIEVES view): the letter rows play its steps upward,\n"
+    "# SIEVEHARP: a harp tuned to a sieve (S1 on XENAKIS's SIEVES view, in LINEAGE): the letter rows play its steps upward,\n"
     "# and held notes fall down it at random. Change S1, and the harp is retuned.\n"
     "\n"
     "name: SIEVHARP\n"
