@@ -87,3 +87,8 @@ BIOS and UEFI, and it boots on 90 emulated PCs, from a Pentium II with 32 MB to 
 BARE! is free software: GPL-3.0-or-later ([LICENSE](LICENSE)). It starts with the Limine bootloader, draws with the
 Terminus font and runs Doom on Chocolate Doom's engine; [NOTICE.md](NOTICE.md) has their licences. It comes with no
 game data: Doom plays the WAD you put on the stick, your own or [Freedoom](https://freedoom.github.io/)'s.
+
+---
+
+Part of [Serious S.H.I.T.](https://willbearfruits.github.io/): instruments, tools and workshops made in Haifa by
+Yaniv Schonfeld (Willbear). If BARE! is useful to you, [support it on Patreon](https://www.patreon.com/Seriousshit).
